@@ -52,13 +52,14 @@ main { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px
 }
 .file-list button { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0; }
 
-.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: end; }
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > label { font-weight: 600; font-size: .9rem; }
 .field[hidden] { display: none; }
 .row { display: flex; align-items: center; gap: 8px; }
 .row input { width: 100%; }
 .hint { color: var(--warn); font-size: .8rem; }
+.note { color: var(--muted); font-size: .8rem; }
 .row select { flex: 1; }
 .check { font-weight: 400 !important; font-size: .85rem; display: flex; gap: 6px; align-items: center; }
 
@@ -66,6 +67,8 @@ select, input[type=number] {
   font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff;
 }
 input[type=color] { width: 60px; height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+
+#processBtn { align-self: end; }
 
 button.primary {
   font: inherit; font-weight: 600;

@@ -45,6 +45,7 @@
           <option value="contain">התאמה (Fit) — כל התמונה + רקע</option>
           <option value="stretch">מתיחה (Stretch)</option>
         </select>
+        <small id="fitNote" class="note"></small>
       </div>
 
       <div class="field" id="focusField">
@@ -70,6 +71,17 @@
           <input type="color" id="bg" value="#ffffff" title="בחירת צבע" hidden>
         </div>
         <small id="bgHint" class="hint" hidden>JPEG לא תומך בשקיפות, ולכן הרקע יהיה לבן. לשקיפות בחרו PNG או WebP.</small>
+      </div>
+
+      <div class="field">
+        <label for="removeBg">החלפת הרקע הקיים בתמונה</label>
+        <select id="removeBg">
+          <option value="off">לא — להשאיר את הרקע המקורי</option>
+          <option value="gentle">כן — עדין</option>
+          <option value="normal">כן — רגיל</option>
+          <option value="strong">כן — חזק</option>
+        </select>
+        <small class="note">למוצר שצולם על רקע חלק (לבן, אפור וכו'). הרקע יוחלף ב"רקע התמונה" שבחרתם. אם נשאר רקע — העלו את העוצמה; אם נמחק חלק מהמוצר — הורידו.</small>
       </div>
 
       <div class="field">
