@@ -14,7 +14,7 @@
   const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB"];
 
   const FIT_NOTES = {
-    auto: "מוצר על רקע חלק או לוגו שקוף: מוצג בשלמותו, ממורכז ועם שוליים. אם צריך עוד מקום, הרקע המקורי מורחב. תמונה רגילה: ממלאת את כל הגודל, והעודף נחתך באופן שווה מהצדדים.",
+    auto: "מוצר על רקע חלק או לוגו שקוף: מוצג בשלמותו, ממורכז ועם שוליים. תמונה רגילה: ממלאת את הגודל עם חיתוך קטן מהצדדים. אם החיתוך היה מוריד יותר מ-35% מהתמונה, היא מוצגת בשלמותה, והשטח שנשאר ממולא ברקע מטושטש מהתמונה (או בצבע הרקע שנבחר).",
     cover: "התמונה ממלאת את כל הגודל, והחלקים שבולטים מחוץ לו נחתכים.",
     contain: "כל התמונה נכנסת בלי חיתוך. השטח שנשאר ממולא ברקע: בצבע שנבחר, או ברקע המקורי (מורחב או מטושטש).",
     stretch: "התמונה נמתחת בדיוק לגודל. בלי חיתוך ובלי רקע, אבל עלולה להיראות מעוותת.",
@@ -22,6 +22,10 @@
 
   // Empty space kept around a centred product, as a share of the shorter side.
   const PRODUCT_MARGIN = 0.05;
+  // In automatic mode, a regular photo is cropped to fill the size only when that removes at most
+  // this share of it; beyond that it's shown whole (e.g. a wide photo in a tall size), so the
+  // subject isn't cut in half.
+  const MAX_AUTO_CROP = 0.35;
   // Background detection works on at most this many pixels on the long side, to keep memory in check.
   const MAX_WORK_SIDE = 3000;
   // Flood-fill tolerances: max colour step between neighbouring pixels, max drift from the edge
@@ -329,11 +333,15 @@
     const whole = { sx: 0, sy: 0, sw: iw, sh: ih };
     if (keepWhole || fit === "stretch") return { ...whole, dx: 0, dy: 0, dw: W, dh: H };
 
-    const mode = fit === "auto" ? (prep.product ? "product" : "cover") : fit;
+    const cropShare = 1 - Math.min(W / iw, H / ih) / Math.max(W / iw, H / ih);
+    const mode = fit !== "auto" ? fit
+      : prep.product ? "product"
+      : cropShare > MAX_AUTO_CROP ? "contain"
+      : "cover";
     if (mode === "cover") {
       const s = Math.max(W / iw, H / ih);
       const sw = W / s, sh = H / s;
-      return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh, dx: 0, dy: 0, dw: W, dh: H };
+      return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh, dx: 0, dy: 0, dw: W, dh: H, cropped: cropShare > 0.02 };
     }
     // "contain" fits the whole image; "product" fits just the product, with a margin around it.
     // A product that was cut off at an edge of the photo stays flush with that edge, without margin.
@@ -349,14 +357,14 @@
     const dx = place(W, dw, mL, mR, t.left, t.right), dy = place(H, dh, mT, mB, t.top, t.bottom);
     if (!product && prep.blurFill) {
       // Regular photo shown whole: the empty bands get a blurred, enlarged copy of the photo.
-      return { ...whole, dx, dy, dw, dh, blurFill: true };
+      return { ...whole, dx, dy, dw, dh, blurFill: true, shownWhole: fit === "auto" };
     }
     if (prep.extend) {
       // The backdrop around the product is shown too: the whole output maps back onto the photo,
       // and whatever falls outside it is filled by extendedCrop.
       return { sx: box.sx - dx / s, sy: box.sy - dy / s, sw: W / s, sh: H / s, dx: 0, dy: 0, dw: W, dh: H, extend: true };
     }
-    return { ...box, dx, dy, dw, dh };
+    return { ...box, dx, dy, dw, dh, shownWhole: !product && fit === "auto" };
   }
 
   // Cut a region that may reach past the photo's edges, filling the missing parts by stretching
@@ -557,13 +565,12 @@
           name += "." + EXT[type];
 
           const centred = !keepWhole && els.fit.value === "auto";
-          const cropped = centred && !prep.product &&
-            Math.abs(t.width / t.height - bitmap.width / bitmap.height) > 0.02;
           const note = prep.replaced ? (centred ? "הרקע הוחלף והמוצר מורכז" : "הרקע הוחלף")
             : prep.extend && centred ? "המוצר מורכז בשלמותו על הרקע המקורי"
-            : prep.note || (cropped
-              ? "תמונה רגילה: השוליים נחתכו כדי למלא את הגודל (אפשר לבטל ב\"הגדרות מתקדמות\")"
-              : "");
+            : [prep.note,
+               centred && L.cropped ? "השוליים נחתכו מעט כדי למלא את הגודל" : "",
+               L.shownWhole ? "הצורה שונה מאוד מהגודל, לכן התמונה מוצגת בשלמותה בלי חיתוך" : "",
+              ].filter(Boolean).join(". ");
           results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
         }
         bitmap.close();
