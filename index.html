@@ -58,9 +58,18 @@
         </select>
       </div>
 
-      <div class="field" id="bgField">
-        <label for="bg">צבע רקע</label>
-        <input type="color" id="bg" value="#ffffff">
+      <div class="field">
+        <label for="bgMode">רקע התמונה</label>
+        <div class="row">
+          <select id="bgMode">
+            <option value="white" selected>לבן</option>
+            <option value="black">שחור</option>
+            <option value="transparent">שקוף (ללא רקע)</option>
+            <option value="custom">צבע אחר…</option>
+          </select>
+          <input type="color" id="bg" value="#ffffff" title="בחירת צבע" hidden>
+        </div>
+        <small id="bgHint" class="hint" hidden>JPEG לא תומך בשקיפות, ולכן הרקע יהיה לבן. לשקיפות בחרו PNG או WebP.</small>
       </div>
 
       <div class="field">

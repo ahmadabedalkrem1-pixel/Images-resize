@@ -4,14 +4,14 @@
     dropzone: $("dropzone"), fileInput: $("fileInput"), fileList: $("fileList"),
     preset: $("preset"), customSize: $("customSize"), customW: $("customW"), customH: $("customH"),
     keepRatio: $("keepRatio"), fit: $("fit"), focus: $("focus"), focusField: $("focusField"),
-    bg: $("bg"), bgField: $("bgField"), format: $("format"), quality: $("quality"),
+    bgMode: $("bgMode"), bg: $("bg"), bgHint: $("bgHint"), format: $("format"), quality: $("quality"),
     qualityField: $("qualityField"), maxKB: $("maxKB"), processBtn: $("processBtn"),
     resultsCard: $("resultsCard"), results: $("results"), zipBtn: $("zipBtn"),
   };
 
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
   const SETTINGS_KEY = "image-resizer-settings";
-  const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "focus", "bg", "format", "quality", "maxKB"];
+  const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "focus", "bgMode", "bg", "format", "quality", "maxKB"];
 
   let files = [];
   let results = [];
@@ -67,8 +67,8 @@
     els.customH.disabled = ratioOnly;
     els.fit.closest(".field").hidden = ratioOnly;
     els.focusField.hidden = ratioOnly || els.fit.value !== "cover";
-    const isJpeg = els.format.value === "image/jpeg";
-    els.bgField.hidden = !(isJpeg || (!ratioOnly && els.fit.value === "contain"));
+    els.bg.hidden = els.bgMode.value !== "custom";
+    els.bgHint.hidden = !(els.bgMode.value === "transparent" && els.format.value === "image/jpeg");
     els.qualityField.hidden = els.format.value === "image/png";
   }
 
@@ -124,12 +124,20 @@
     ctx.drawImage(cur, sx, sy, sw, sh, dx, dy, dw, dh);
   }
 
-  function render(img, W, H, fit, focus, bg, fillBg) {
+  // Background colour to paint behind the image, or null to keep transparency.
+  // JPEG has no alpha channel, so "transparent" falls back to white there.
+  function backgroundColor(type) {
+    const mode = els.bgMode.value;
+    if (mode === "transparent") return type === "image/jpeg" ? "#ffffff" : null;
+    return { white: "#ffffff", black: "#000000" }[mode] || els.bg.value;
+  }
+
+  function render(img, W, H, fit, focus, bg) {
     const canvas = document.createElement("canvas");
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
-    if (fillBg || fit === "contain") {
+    if (bg) {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
     }
@@ -194,7 +202,7 @@
       for (const file of files) {
         const img = await createImageBitmap(file);
         for (const t of getTargets(img)) {
-          const canvas = render(img, t.width, t.height, fit, els.focus.value, els.bg.value, type === "image/jpeg");
+          const canvas = render(img, t.width, t.height, fit, els.focus.value, backgroundColor(type));
           const limit = maxBytes || (t.maxKB ? t.maxKB * 1024 : 0);
           const out = await encode(canvas, type, quality, limit);
 
@@ -286,7 +294,7 @@
   // Allow pasting an image from the clipboard (e.g. a screenshot).
   document.addEventListener("paste", (ev) => addFiles([...ev.clipboardData.files]));
 
-  [els.preset, els.fit, els.format, els.keepRatio].forEach((el) => el.addEventListener("change", updateVisibility));
+  [els.preset, els.fit, els.format, els.keepRatio, els.bgMode].forEach((el) => el.addEventListener("change", updateVisibility));
   els.processBtn.addEventListener("click", processAll);
   els.zipBtn.addEventListener("click", downloadZip);
 

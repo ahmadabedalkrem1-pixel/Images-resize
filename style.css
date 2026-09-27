@@ -58,6 +58,8 @@ main { max-width: 960px; margin: 0 auto; padding: 16px; display: grid; gap: 16px
 .field[hidden] { display: none; }
 .row { display: flex; align-items: center; gap: 8px; }
 .row input { width: 100%; }
+.hint { color: var(--warn); font-size: .8rem; }
+.row select { flex: 1; }
 .check { font-weight: 400 !important; font-size: .85rem; display: flex; gap: 6px; align-items: center; }
 
 select, input[type=number] {
