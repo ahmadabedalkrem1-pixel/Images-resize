@@ -7,10 +7,15 @@
     bgMode: $("bgMode"), bg: $("bg"), bgNote: $("bgNote"), bgHint: $("bgHint"),
     format: $("format"), quality: $("quality"), qualityField: $("qualityField"), maxKB: $("maxKB"),
     processBtn: $("processBtn"), resultsCard: $("resultsCard"), results: $("results"), zipBtn: $("zipBtn"),
+    folderInput: $("folderInput"), folderBtn: $("folderBtn"), clearBtn: $("clearBtn"),
+    deletePreset: $("deletePreset"), addSize: $("addSize"), newName: $("newName"), newW: $("newW"),
+    newH: $("newH"), saveSize: $("saveSize"),
   };
 
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
   const SETTINGS_KEY = "image-resizer-settings-v3";
+  const USER_PRESETS_KEY = "image-resizer-user-presets";
+  const QUALITY_LABELS = { "0.6": "נמוכה", "0.8": "בינונית", "0.92": "גבוהה" };
   const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB"];
 
   const FIT_NOTES = {
@@ -55,13 +60,51 @@
 
   // ---------- Setup ----------
 
+  // Sizes a user added with "+", kept in their browser only.
+  let userPresets = [];
+  function loadUserPresets() {
+    try { userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_KEY) || "[]"); } catch { userPresets = []; }
+  }
+  function saveUserPresets() {
+    try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch { /* storage unavailable */ }
+  }
+  const allPresets = () => PRESETS.concat(userPresets);
+
   function fillPresets() {
+    els.preset.innerHTML = "";
     els.preset.add(new Option("גודל מקורי של התמונה", "original"));
     PRESETS.forEach((p, i) => {
       els.preset.add(new Option(`${p.name} — ${p.width}×${p.height}`, String(i)));
     });
+    userPresets.forEach((p, i) => {
+      els.preset.add(new Option(`${p.name} — ${p.width}×${p.height} ★`, `u${i}`));
+    });
     els.preset.add(new Option("כל הגדלים ברשימה", "all"));
-    els.preset.add(new Option("גודל מותאם (Custom)…", "custom"));
+    els.preset.add(new Option("גודל מותאם (חד-פעמי)…", "custom"));
+    els.preset.add(new Option("+ הוספת גודל חדש לרשימה…", "add"));
+    updateOriginalLabel();
+  }
+
+  function addUserPreset() {
+    const width = parseInt(els.newW.value, 10), height = parseInt(els.newH.value, 10);
+    if (!(width > 0 && height > 0)) { alert("יש להזין רוחב וגובה"); return; }
+    const name = els.newName.value.trim() || `גודל ${width}×${height}`;
+    userPresets.push({ name, width, height });
+    saveUserPresets();
+    fillPresets();
+    els.preset.value = `u${userPresets.length - 1}`;
+    els.newName.value = els.newW.value = els.newH.value = "";
+    updateVisibility();
+  }
+
+  function deleteUserPreset() {
+    const i = Number(els.preset.value.slice(1));
+    if (!confirm(`למחוק את "${userPresets[i].name}" מהרשימה?`)) return;
+    userPresets.splice(i, 1);
+    saveUserPresets();
+    fillPresets();
+    els.preset.value = "original";
+    updateVisibility();
   }
 
   async function updateOriginalLabel() {
@@ -71,7 +114,7 @@
       return;
     }
     try {
-      const b = await createImageBitmap(files[0]);
+      const b = await decodeImage(files[0]);
       opt.textContent = `גודל מקורי של התמונה — ${b.width}×${b.height}`;
       b.close();
     } catch { /* unreadable file; keep the generic label */ }
@@ -113,6 +156,8 @@
 
   function updateVisibility() {
     const custom = els.preset.value === "custom";
+    els.addSize.hidden = els.preset.value !== "add";
+    els.deletePreset.hidden = !els.preset.value.startsWith("u");
     els.customSize.hidden = !custom;
     els.customH.disabled = custom && els.keepRatio.checked;
     els.fitNote.textContent = FIT_NOTES[els.fit.value];
@@ -124,9 +169,89 @@
 
   // ---------- Files ----------
 
+  const isPsd = (f) => /\.psd$/i.test(f.name) || f.type === "image/vnd.adobe.photoshop";
+  const isImage = (f) => !f.name.startsWith(".") &&
+    (f.type.startsWith("image/") || isPsd(f) || /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(f.name));
+
   function addFiles(list) {
-    for (const f of list) if (f.type.startsWith("image/")) files.push(f);
+    for (const f of list) if (isImage(f)) files.push(f);
     renderFileList();
+  }
+
+  // Everything dropped, including the images inside dropped folders (and their sub-folders).
+  async function droppedFiles(dataTransfer) {
+    // Entries must be taken synchronously, before the drop event's data is released.
+    const entries = [...(dataTransfer.items || [])].map((it) => it.webkitGetAsEntry?.()).filter(Boolean);
+    if (!entries.length) return [...dataTransfer.files];
+    const out = [];
+    const walk = async (entry) => {
+      if (entry.isFile) {
+        out.push(await new Promise((res, rej) => entry.file(res, rej)));
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        for (;;) {
+          const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+          if (!batch.length) break;
+          for (const e of batch) await walk(e);
+        }
+      }
+    };
+    for (const e of entries) await walk(e);
+    return out;
+  }
+
+  // Photoshop files are read with ag-psd, loaded only the first time one is needed.
+  let psdLib = null;
+  function loadPsdLib() {
+    psdLib ||= new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "vendor/ag-psd.min.js";
+      s.onload = () => resolve(window.agPsd);
+      s.onerror = () => { psdLib = null; reject(new Error("לא ניתן לטעון את רכיב קריאת קבצי הפוטושופ")); };
+      document.head.append(s);
+    });
+    return psdLib;
+  }
+
+  async function decodePsd(file) {
+    const { readPsd } = await loadPsdLib();
+    const buffer = await file.arrayBuffer();
+    // The flattened image Photoshop stores alongside the layers ("Maximize compatibility").
+    // Saved without that option, a layered file holds only a blank placeholder there.
+    const psd = readPsd(buffer, { skipLayerImageData: true, skipThumbnail: true });
+    if (psd.canvas && !(psd.children?.length && isBlank(psd.canvas))) return createImageBitmap(psd.canvas);
+    // Saved without it: stack the visible layers (layer effects and blend modes aren't applied).
+    const full = readPsd(buffer, { skipCompositeImageData: true, skipThumbnail: true });
+    const c = document.createElement("canvas");
+    c.width = full.width;
+    c.height = full.height;
+    const ctx = c.getContext("2d");
+    const draw = (layers) => {
+      for (const layer of layers || []) {
+        if (layer.hidden) continue;
+        if (layer.children) { draw(layer.children); continue; }
+        if (!layer.canvas) continue;
+        ctx.globalAlpha = layer.opacity ?? 1;
+        ctx.drawImage(layer.canvas, layer.left || 0, layer.top || 0);
+      }
+    };
+    draw(full.children);
+    return createImageBitmap(c);
+  }
+
+  // True when every sampled pixel is the same colour (an empty placeholder image).
+  function isBlank(canvas) {
+    const { width: w, height: h } = canvas;
+    const d = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+    const step = Math.max(1, Math.floor((w * h) / 20000)) * 4;
+    for (let i = step; i < d.length; i += step) {
+      if (d[i] !== d[0] || d[i + 1] !== d[1] || d[i + 2] !== d[2] || d[i + 3] !== d[3]) return false;
+    }
+    return true;
+  }
+
+  function decodeImage(file) {
+    return isPsd(file) ? decodePsd(file) : createImageBitmap(file);
   }
 
   function renderFileList() {
@@ -143,6 +268,7 @@
       els.fileList.append(li);
     });
     els.processBtn.disabled = files.length === 0;
+    els.clearBtn.hidden = files.length < 2;
     updateOriginalLabel();
   }
 
@@ -318,7 +444,9 @@
   function getTargets(img) {
     const v = els.preset.value;
     if (v === "original") return [{ name: "Original", width: img.width, height: img.height }];
-    if (v === "all") return PRESETS;
+    if (v === "all") return allPresets();
+    if (v === "add") throw new Error("יש לשמור קודם את הגודל החדש, או לבחור גודל מהרשימה");
+    if (v.startsWith("u")) return [userPresets[Number(v.slice(1))]];
     if (v !== "custom") return [PRESETS[Number(v)]];
     const w = parseInt(els.customW.value, 10);
     let h = parseInt(els.customH.value, 10);
@@ -551,7 +679,12 @@
 
     try {
       for (const file of files) {
-        const bitmap = await createImageBitmap(file);
+        let bitmap;
+        try {
+          bitmap = await decodeImage(file);
+        } catch {
+          throw new Error(`לא ניתן לקרוא את הקובץ "${file.name}"`);
+        }
         const prep = prepare(bitmap, els.bgMode.value, file.type === "image/jpeg");
         for (const t of getTargets(bitmap)) {
           const L = layout(prep, t.width, t.height, els.fit.value, keepWhole);
@@ -571,7 +704,7 @@
                centred && L.cropped ? "השוליים נחתכו מעט כדי למלא את הגודל" : "",
                L.shownWhole ? "הצורה שונה מאוד מהגודל, לכן התמונה מוצגת בשלמותה בלי חיתוך" : "",
               ].filter(Boolean).join(". ");
-          results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
+          results.push({ ...out, chosenQuality: quality, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
         }
         bitmap.close();
       }
@@ -610,7 +743,9 @@
           : ` ⚠ מעל <bdi>${Math.round(r.limit / 1024)} KB</bdi>` +
             (r.blob.type === "image/png" ? " — PNG לא נדחס, נסו JPEG/WebP" : "");
       }
-      const qNote = r.blob.type !== "image/png" ? ` · איכות ${Math.round(r.quality * 100)}%` : "";
+      const qNote = r.blob.type === "image/png" ? ""
+        : r.quality < r.chosenQuality - 0.001 ? " · האיכות הותאמה למגבלת הגודל"
+        : ` · איכות ${QUALITY_LABELS[String(r.chosenQuality)] || ""}`;
 
       div.innerHTML = `
         <div class="thumb"><img alt=""></div>
@@ -654,7 +789,12 @@
     els.dropzone.addEventListener(e, (ev) => { ev.preventDefault(); els.dropzone.classList.add("over"); }));
   ["dragleave", "drop"].forEach((e) =>
     els.dropzone.addEventListener(e, (ev) => { ev.preventDefault(); els.dropzone.classList.remove("over"); }));
-  els.dropzone.addEventListener("drop", (ev) => addFiles(ev.dataTransfer.files));
+  els.dropzone.addEventListener("drop", async (ev) => addFiles(await droppedFiles(ev.dataTransfer)));
+  els.folderBtn.addEventListener("click", () => els.folderInput.click());
+  els.folderInput.addEventListener("change", () => { addFiles(els.folderInput.files); els.folderInput.value = ""; });
+  els.clearBtn.addEventListener("click", () => { files = []; renderFileList(); });
+  els.saveSize.addEventListener("click", addUserPreset);
+  els.deletePreset.addEventListener("click", deleteUserPreset);
   // Allow pasting an image from the clipboard (e.g. a screenshot).
   document.addEventListener("paste", (ev) => addFiles([...ev.clipboardData.files]));
 
@@ -666,6 +806,7 @@
   els.processBtn.addEventListener("click", processAll);
   els.zipBtn.addEventListener("click", downloadZip);
 
+  loadUserPresets();
   fillPresets();
   disableUnsupportedFormats().then(() => { loadSettings(); updateVisibility(); });
 })();
