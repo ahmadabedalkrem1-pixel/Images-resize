@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <header>
@@ -15,10 +15,15 @@
   <main>
     <section class="card">
       <label id="dropzone" class="dropzone" for="fileInput">
-        <input type="file" id="fileInput" accept="image/*" multiple hidden>
-        <strong>גררו תמונות לכאן</strong>
-        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד)</span>
+        <input type="file" id="fileInput" accept="image/*,.psd" multiple hidden>
+        <strong>גררו תמונות או תיקייה לכאן</strong>
+        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד). כולל קבצי פוטושופ (PSD)</span>
       </label>
+      <div class="upload-actions">
+        <input type="file" id="folderInput" webkitdirectory multiple hidden>
+        <button type="button" id="folderBtn" class="secondary">בחירת תיקייה</button>
+        <button type="button" id="clearBtn" class="link" hidden>ניקוי הרשימה</button>
+      </div>
       <ul id="fileList" class="file-list"></ul>
     </section>
 
@@ -26,6 +31,19 @@
       <div class="field">
         <label for="preset">גודל</label>
         <select id="preset"></select>
+        <button type="button" id="deletePreset" class="link" hidden>מחיקת הגודל הזה מהרשימה</button>
+      </div>
+
+      <div class="field add-size" id="addSize" hidden>
+        <label>הוספת גודל חדש לרשימה</label>
+        <input type="text" id="newName" placeholder="שם, למשל Banner" maxlength="40">
+        <div class="row">
+          <input type="number" id="newW" min="1" max="10000" placeholder="רוחב" dir="ltr">
+          <span>×</span>
+          <input type="number" id="newH" min="1" max="10000" placeholder="גובה" dir="ltr">
+        </div>
+        <button type="button" id="saveSize" class="secondary">שמירה ברשימה</button>
+        <small class="note">הגודל נשמר בדפדפן שלכם. כדי להוסיף גודל לכל הצוות, עדכנו את הקובץ presets.js.</small>
       </div>
 
       <div class="field custom-size" id="customSize" hidden>
@@ -66,10 +84,9 @@
       <div class="field" id="qualityField">
         <label for="quality">איכות</label>
         <select id="quality">
-          <option value="0.6">נמוכה (60%)</option>
-          <option value="0.8">בינונית (80%)</option>
-          <option value="0.92" selected>גבוהה (92%) — מומלץ</option>
-          <option value="1">מקסימלית (100%)</option>
+          <option value="0.6">נמוכה</option>
+          <option value="0.8">בינונית</option>
+          <option value="0.92" selected>גבוהה</option>
         </select>
       </div>
 
@@ -107,7 +124,7 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="presets.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

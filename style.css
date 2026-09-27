@@ -81,6 +81,22 @@ button.primary {
 }
 button.primary:disabled { opacity: .5; cursor: not-allowed; }
 
+button.secondary {
+  font: inherit; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+}
+button.link {
+  font: inherit; font-size: .85rem; background: none; border: 0; padding: 0;
+  color: var(--accent); cursor: pointer; text-decoration: underline; align-self: flex-start;
+}
+button[hidden] { display: none; }
+.upload-actions { display: flex; gap: 16px; align-items: center; margin-top: 12px; }
+.add-size { background: var(--accent-soft); border-radius: 10px; padding: 12px; }
+input[type=text] {
+  font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff;
+}
+
 .results-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .results-head h2 { margin: 0; font-size: 1.2rem; }
 .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
