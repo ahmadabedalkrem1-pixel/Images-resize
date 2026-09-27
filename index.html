@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header>
@@ -66,9 +66,10 @@
       <div class="field" id="qualityField">
         <label for="quality">איכות</label>
         <select id="quality">
-          <option value="0.6">נמוכה</option>
-          <option value="0.8">בינונית</option>
-          <option value="0.92" selected>גבוהה</option>
+          <option value="0.6">נמוכה (60%)</option>
+          <option value="0.8">בינונית (80%)</option>
+          <option value="0.92" selected>גבוהה (92%) — מומלץ</option>
+          <option value="1">מקסימלית (100%)</option>
         </select>
       </div>
 
@@ -106,7 +107,7 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="presets.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

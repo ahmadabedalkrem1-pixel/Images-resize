@@ -562,9 +562,9 @@
           const note = prep.replaced ? (centred ? "הרקע הוחלף והמוצר מורכז" : "הרקע הוחלף")
             : prep.extend && centred ? "המוצר מורכז בשלמותו על הרקע המקורי"
             : prep.note || (cropped
-              ? "תמונה רגילה (לא מוצר על רקע חלק), לכן נחתכו שוליים כדי למלא את הגודל. להצגה בלי חיתוך: הגדרות מתקדמות"
+              ? "תמונה רגילה: השוליים נחתכו כדי למלא את הגודל (אפשר לבטל ב\"הגדרות מתקדמות\")"
               : "");
-          results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn || cropped });
+          results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
         }
         bitmap.close();
       }
