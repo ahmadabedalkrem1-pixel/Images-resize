@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <header>
@@ -39,49 +39,18 @@
       </div>
 
       <div class="field">
-        <label for="fit">התאמה כשהיחס שונה</label>
-        <select id="fit">
-          <option value="cover">חיתוך (Crop) — ממלא את כל הגודל</option>
-          <option value="contain">התאמה (Fit) — כל התמונה + רקע</option>
-          <option value="stretch">מתיחה (Stretch)</option>
-        </select>
-        <small id="fitNote" class="note"></small>
-      </div>
-
-      <div class="field" id="focusField">
-        <label for="focus">איזה חלק לשמור בחיתוך</label>
-        <select id="focus">
-          <option value="center">מרכז</option>
-          <option value="top">למעלה</option>
-          <option value="bottom">למטה</option>
-          <option value="left">שמאל</option>
-          <option value="right">ימין</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="bgMode">רקע התמונה</label>
+        <label for="bgMode">רקע</label>
         <div class="row">
           <select id="bgMode">
-            <option value="white" selected>לבן</option>
-            <option value="black">שחור</option>
-            <option value="transparent">שקוף (ללא רקע)</option>
+            <option value="original" selected>רקע מקורי (בלי שינוי)</option>
+            <option value="white">רקע לבן</option>
+            <option value="transparent">רקע שקוף (PNG)</option>
             <option value="custom">צבע אחר…</option>
           </select>
           <input type="color" id="bg" value="#ffffff" title="בחירת צבע" hidden>
         </div>
+        <small id="bgNote" class="note">בתמונת מוצר על רקע חלק, הרקע מוחלף אוטומטית והמוצר ממורכז.</small>
         <small id="bgHint" class="hint" hidden>JPEG לא תומך בשקיפות, ולכן הרקע יהיה לבן. לשקיפות בחרו PNG או WebP.</small>
-      </div>
-
-      <div class="field">
-        <label for="removeBg">החלפת הרקע הקיים בתמונה</label>
-        <select id="removeBg">
-          <option value="off">לא — להשאיר את הרקע המקורי</option>
-          <option value="gentle">כן — עדין</option>
-          <option value="normal">כן — רגיל</option>
-          <option value="strong">כן — חזק</option>
-        </select>
-        <small class="note">למוצר שצולם על רקע חלק (לבן, אפור וכו'). הרקע יוחלף ב"רקע התמונה" שבחרתם. אם נשאר רקע — העלו את העוצמה; אם נמחק חלק מהמוצר — הורידו.</small>
       </div>
 
       <div class="field">
@@ -108,6 +77,20 @@
         <input type="number" id="maxKB" min="1" placeholder="למשל 450" dir="ltr">
       </div>
 
+      <details class="advanced">
+        <summary>הגדרות מתקדמות</summary>
+        <div class="field">
+          <label for="fit">מיקום התמונה בגודל החדש</label>
+          <select id="fit">
+            <option value="auto" selected>אוטומטי (מומלץ)</option>
+            <option value="cover">למלא את כל הגודל (חיתוך שוליים)</option>
+            <option value="contain">להכניס את כל התמונה (בלי חיתוך)</option>
+            <option value="stretch">מתיחה (עלול לעוות)</option>
+          </select>
+          <small id="fitNote" class="note"></small>
+        </div>
+      </details>
+
       <button id="processBtn" class="primary" disabled>שינוי גודל</button>
     </section>
 
@@ -120,8 +103,10 @@
     </section>
   </main>
 
+  <!-- ?v= forces browsers to load the new file after an update; bump it on every change. -->
   <script src="vendor/jszip.min.js"></script>
-  <script src="presets.js"></script>
-  <script src="app.js"></script>
+  <script src="vendor/pica.min.js"></script>
+  <script src="presets.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
