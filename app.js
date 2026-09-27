@@ -3,7 +3,7 @@
   const els = {
     dropzone: $("dropzone"), fileInput: $("fileInput"), fileList: $("fileList"),
     preset: $("preset"), customSize: $("customSize"), customW: $("customW"), customH: $("customH"),
-    keepRatio: $("keepRatio"), fit: $("fit"), focus: $("focus"), focusField: $("focusField"),
+    keepRatio: $("keepRatio"), fit: $("fit"), fitNote: $("fitNote"), removeBg: $("removeBg"), focus: $("focus"), focusField: $("focusField"),
     bgMode: $("bgMode"), bg: $("bg"), bgHint: $("bgHint"), format: $("format"), quality: $("quality"),
     qualityField: $("qualityField"), maxKB: $("maxKB"), processBtn: $("processBtn"),
     resultsCard: $("resultsCard"), results: $("results"), zipBtn: $("zipBtn"),
@@ -11,7 +11,17 @@
 
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
   const SETTINGS_KEY = "image-resizer-settings";
-  const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "focus", "bgMode", "bg", "format", "quality", "maxKB"];
+  const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "focus", "bgMode", "bg", "removeBg", "format", "quality", "maxKB"];
+
+  const FIT_NOTES = {
+    cover: "התמונה ממלאת את כל הגודל, והחלקים שבולטים מחוץ לו נחתכים.",
+    contain: "כל התמונה נכנסת בלי חיתוך, והשטח שנשאר ממולא בצבע הרקע.",
+    stretch: "התמונה נמתחת בדיוק לגודל — בלי חיתוך ובלי רקע, אבל עלולה להיראות מעוותת.",
+  };
+
+  // [max colour step between neighbouring pixels, max drift in brightness/colour from
+  //  the edge pixel the fill started at, max tint difference from the edge colour]
+  const BG_STRENGTH = { gentle: [16, 70, 12], normal: [24, 100, 18], strong: [34, 140, 26] };
 
   let files = [];
   let results = [];
@@ -22,6 +32,7 @@
     PRESETS.forEach((p, i) => {
       els.preset.add(new Option(`${p.name} — ${p.width}×${p.height}`, String(i)));
     });
+    els.preset.add(new Option("גודל מקורי (בלי לשנות גודל)", "original"));
     els.preset.add(new Option("כל הגדלים ברשימה", "all"));
     els.preset.add(new Option("גודל מותאם (Custom)…", "custom"));
   }
@@ -63,10 +74,12 @@
   function updateVisibility() {
     const custom = els.preset.value === "custom";
     const ratioOnly = custom && els.keepRatio.checked;
+    const noFit = ratioOnly || els.preset.value === "original";
     els.customSize.hidden = !custom;
     els.customH.disabled = ratioOnly;
-    els.fit.closest(".field").hidden = ratioOnly;
-    els.focusField.hidden = ratioOnly || els.fit.value !== "cover";
+    els.fit.closest(".field").hidden = noFit;
+    els.fitNote.textContent = FIT_NOTES[els.fit.value];
+    els.focusField.hidden = noFit || els.fit.value !== "cover";
     els.bg.hidden = els.bgMode.value !== "custom";
     els.bgHint.hidden = !(els.bgMode.value === "transparent" && els.format.value === "image/jpeg");
     els.qualityField.hidden = els.format.value === "image/png";
@@ -100,6 +113,7 @@
   function getTargets(img) {
     const v = els.preset.value;
     if (v === "all") return PRESETS;
+    if (v === "original") return [{ name: "Original", width: img.width, height: img.height }];
     if (v !== "custom") return [PRESETS[Number(v)]];
     const w = parseInt(els.customW.value, 10);
     let h = parseInt(els.customH.value, 10);
@@ -122,6 +136,82 @@
     }
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(cur, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  // Make the existing photo background transparent: flood-fill from the image edges,
+  // following pixels that change only gradually (so studio gradients are followed)
+  // and stay close to the edge colour they started from (so the fill can't leak
+  // into the product). A tint check also stops it at coloured pixels, so bright
+  // reflections on the product aren't mistaken for a light background.
+  function removeBackground(img, strength) {
+    const [stepTol, driftTol, tintTol] = BG_STRENGTH[strength];
+    const w = img.width, h = img.height, n = w * h;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const d = imageData.data;
+
+    const dist = (i, r, g, b) => Math.hypot(d[i] - r, d[i + 1] - g, d[i + 2] - b);
+
+    const border = [];
+    for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+    for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
+    const median = (c) => {
+      const vals = border.map((p) => d[p * 4 + c]).sort((a, b) => a - b);
+      return vals[vals.length >> 1];
+    };
+    const edge = [median(0), median(1), median(2)];
+    const tintOff = (i) =>
+      Math.hypot(d[i] - d[i + 1] - (edge[0] - edge[1]), d[i + 1] - d[i + 2] - (edge[1] - edge[2]));
+
+    const isBg = new Uint8Array(n);
+    const seed = new Uint8Array(n * 3); // edge colour each filled pixel descends from
+    const queue = new Int32Array(n);
+    let head = 0, tail = 0;
+    for (const p of border) {
+      if (isBg[p]) continue;
+      if (dist(p * 4, edge[0], edge[1], edge[2]) > driftTol || tintOff(p * 4) > tintTol) continue; // product touches the edge
+      isBg[p] = 1;
+      seed.set(d.subarray(p * 4, p * 4 + 3), p * 3);
+      queue[tail++] = p;
+    }
+    while (head < tail) {
+      const p = queue[head++];
+      const x = p % w;
+      const sr = seed[p * 3], sg = seed[p * 3 + 1], sb = seed[p * 3 + 2];
+      for (const q of [p - w, p + w, x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1]) {
+        if (q < 0 || q >= n || isBg[q]) continue;
+        if (dist(q * 4, d[p * 4], d[p * 4 + 1], d[p * 4 + 2]) > stepTol) continue;
+        if (dist(q * 4, sr, sg, sb) > driftTol || tintOff(q * 4) > tintTol) continue;
+        isBg[q] = 1;
+        seed[q * 3] = sr; seed[q * 3 + 1] = sg; seed[q * 3 + 2] = sb;
+        queue[tail++] = q;
+      }
+    }
+
+    // Soften the cut: a product pixel's opacity is the share of its 3×3 neighbourhood
+    // that is product, which anti-aliases the outline instead of leaving a jagged edge.
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = y * w + x;
+        if (isBg[p]) { d[p * 4 + 3] = 0; continue; }
+        let fg = 0, total = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy, xx = x + dx;
+            if (yy < 0 || yy >= h || xx < 0 || xx >= w) continue;
+            total++;
+            if (!isBg[yy * w + xx]) fg++;
+          }
+        }
+        if (fg < total) d[p * 4 + 3] = Math.round((d[p * 4 + 3] * fg) / total);
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
   }
 
   // Background colour to paint behind the image, or null to keep transparency.
@@ -200,7 +290,8 @@
 
     try {
       for (const file of files) {
-        const img = await createImageBitmap(file);
+        const bitmap = await createImageBitmap(file);
+        const img = els.removeBg.value === "off" ? bitmap : removeBackground(bitmap, els.removeBg.value);
         for (const t of getTargets(img)) {
           const canvas = render(img, t.width, t.height, fit, els.focus.value, backgroundColor(type));
           const limit = maxBytes || (t.maxKB ? t.maxKB * 1024 : 0);
@@ -213,7 +304,7 @@
 
           results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit });
         }
-        img.close();
+        bitmap.close();
       }
       renderResults();
     } catch (err) {
@@ -294,7 +385,7 @@
   // Allow pasting an image from the clipboard (e.g. a screenshot).
   document.addEventListener("paste", (ev) => addFiles([...ev.clipboardData.files]));
 
-  [els.preset, els.fit, els.format, els.keepRatio, els.bgMode].forEach((el) => el.addEventListener("change", updateVisibility));
+  [els.preset, els.fit, els.format, els.keepRatio, els.bgMode, els.removeBg].forEach((el) => el.addEventListener("change", updateVisibility));
   els.processBtn.addEventListener("click", processAll);
   els.zipBtn.addEventListener("click", downloadZip);
 
