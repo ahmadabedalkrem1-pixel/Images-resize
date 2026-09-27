@@ -14,7 +14,7 @@
   const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB"];
 
   const FIT_NOTES = {
-    auto: "מוצר על רקע חלק או לוגו שקוף: ממורכז בתוך הגודל עם שוליים, בלי לחתוך אותו. תמונה רגילה: ממלאת את כל הגודל, והשוליים העודפים נחתכים מהצדדים באופן שווה.",
+    auto: "מוצר על רקע חלק או לוגו שקוף: מוצג בשלמותו, ממורכז ועם שוליים. אם צריך עוד מקום, הרקע המקורי מורחב. תמונה רגילה: ממלאת את כל הגודל, והעודף נחתך באופן שווה מהצדדים.",
     cover: "התמונה ממלאת את כל הגודל, והחלקים שבולטים מחוץ לו נחתכים.",
     contain: "כל התמונה נכנסת בלי חיתוך, והשטח שנשאר ממולא בצבע הרקע.",
     stretch: "התמונה נמתחת בדיוק לגודל. בלי חיתוך ובלי רקע, אבל עלולה להיראות מעוותת.",
@@ -256,24 +256,25 @@
 
   // Decide how to treat one uploaded image:
   // - a transparent PNG (logo, cut-out product) is a "product" as is;
-  // - when a new background was chosen and the photo has a plain background, that background
-  //   is removed and the image becomes a "product";
+  // - a photo with a plain background is a "product" too: its background is removed when a new
+  //   one was chosen, or kept and extended when the original background was chosen;
   // - anything else is a regular photo.
   function prepare(bitmap, bgMode, isJpegFile) {
     if (!isJpegFile) {
       const c = toCanvas(bitmap);
       if (hasTransparency(c)) return { src: c, product: true, box: contentBox(c) };
     }
-    if (bgMode === "original") return { src: bitmap, product: false };
-
-    const c = toCanvas(bitmap, MAX_WORK_SIDE);
-    if (removePlainBackground(c)) {
-      return { src: c, product: true, box: contentBox(c), replaced: true };
+    const work = toCanvas(bitmap, MAX_WORK_SIDE);
+    const cut = toCanvas(work);
+    if (!removePlainBackground(cut)) {
+      if (bgMode === "original") return { src: bitmap, product: false };
+      return { src: bitmap, product: false, note: "לא זוהה רקע חלק ואחיד, לכן הרקע המקורי נשאר", warn: true };
     }
-    return {
-      src: bitmap, product: false,
-      note: "לא זוהה רקע חלק ואחיד, לכן הרקע המקורי נשאר", warn: true,
-    };
+    const box = contentBox(cut);
+    // Keeping the original backdrop: the product is still centred whole, and the backdrop is
+    // extended wherever the new size needs more room than the photo has.
+    if (bgMode === "original") return { src: work, product: true, box, extend: true };
+    return { src: cut, product: true, box, replaced: true };
   }
 
   // ---------- Layout & resizing ----------
@@ -307,7 +308,50 @@
     const m = mode === "product" ? Math.round(Math.min(W, H) * PRODUCT_MARGIN) : 0;
     const s = Math.min((W - 2 * m) / box.sw, (H - 2 * m) / box.sh);
     const dw = Math.max(1, Math.round(box.sw * s)), dh = Math.max(1, Math.round(box.sh * s));
-    return { ...box, dx: Math.round((W - dw) / 2), dy: Math.round((H - dh) / 2), dw, dh };
+    const dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
+    if (prep.extend) {
+      // The backdrop around the product is shown too: the whole output maps back onto the photo,
+      // and whatever falls outside it is filled by extendedCrop.
+      return { sx: box.sx - dx / s, sy: box.sy - dy / s, sw: W / s, sh: H / s, dx: 0, dy: 0, dw: W, dh: H, extend: true };
+    }
+    return { ...box, dx, dy, dw, dh };
+  }
+
+  // Cut a region that may reach past the photo's edges, filling the missing parts by stretching
+  // the photo's outermost pixels outward, like extending the canvas over a plain studio backdrop.
+  // Horizontal first, then vertical from that result, so the corners continue the sides smoothly.
+  function extendedCrop(src, sx, sy, sw, sh) {
+    const cw = Math.max(1, Math.round(sw)), ch = Math.max(1, Math.round(sh));
+    const ox = -sx, oy = -sy, iw = src.width, ih = src.height;
+
+    // An edge line averaged over the outermost few pixels, so JPEG noise doesn't turn into streaks.
+    const edgeLine = (from, x, y, w, h, vertical) => {
+      const t = document.createElement("canvas");
+      t.width = vertical ? 1 : w;
+      t.height = vertical ? h : 1;
+      const tctx = t.getContext("2d");
+      tctx.imageSmoothingQuality = "high";
+      tctx.drawImage(from, x, y, w, h, 0, 0, t.width, t.height);
+      return t;
+    };
+    const S = Math.min(8, iw, ih);
+
+    const rows = document.createElement("canvas");
+    rows.width = cw;
+    rows.height = ih;
+    const rctx = rows.getContext("2d");
+    if (ox > 0) rctx.drawImage(edgeLine(src, 0, 0, S, ih, true), 0, 0, Math.ceil(ox) + 1, ih);
+    if (ox + iw < cw) rctx.drawImage(edgeLine(src, iw - S, 0, S, ih, true), Math.floor(ox + iw) - 1, 0, cw - Math.floor(ox + iw) + 1, ih);
+    rctx.drawImage(src, ox, 0);
+
+    const out = document.createElement("canvas");
+    out.width = cw;
+    out.height = ch;
+    const octx = out.getContext("2d");
+    if (oy > 0) octx.drawImage(edgeLine(rows, 0, 0, cw, S, false), 0, 0, cw, Math.ceil(oy) + 1);
+    if (oy + ih < ch) octx.drawImage(edgeLine(rows, 0, ih - S, cw, S, false), 0, Math.floor(oy + ih) - 1, cw, ch - Math.floor(oy + ih) + 1);
+    octx.drawImage(rows, 0, oy);
+    return out;
   }
 
   // Fallback when pica isn't available: downscale in halving steps so large reductions stay sharp.
@@ -329,12 +373,17 @@
   async function render(prep, W, H, L, bg) {
     // 1. Cut out the source region (flattened onto the background when it's opaque, so
     //    semi-transparent edges blend into the final colour rather than into black).
-    const crop = document.createElement("canvas");
-    crop.width = Math.max(1, Math.round(L.sw));
-    crop.height = Math.max(1, Math.round(L.sh));
-    const cctx = crop.getContext("2d");
-    if (bg) { cctx.fillStyle = bg; cctx.fillRect(0, 0, crop.width, crop.height); }
-    cctx.drawImage(prep.src, L.sx, L.sy, L.sw, L.sh, 0, 0, crop.width, crop.height);
+    let crop;
+    if (L.extend) {
+      crop = extendedCrop(prep.src, L.sx, L.sy, L.sw, L.sh);
+    } else {
+      crop = document.createElement("canvas");
+      crop.width = Math.max(1, Math.round(L.sw));
+      crop.height = Math.max(1, Math.round(L.sh));
+      const cctx = crop.getContext("2d");
+      if (bg) { cctx.fillStyle = bg; cctx.fillRect(0, 0, crop.width, crop.height); }
+      cctx.drawImage(prep.src, L.sx, L.sy, L.sw, L.sh, 0, 0, crop.width, crop.height);
+    }
 
     // 2. High-quality resample (pica's default filter includes Photoshop-style sharpening).
     const scaled = document.createElement("canvas");
@@ -412,8 +461,9 @@
           usedNames.add(name);
           name += "." + EXT[type];
 
-          const note = prep.replaced
-            ? (keepWhole || els.fit.value !== "auto" ? "הרקע הוחלף" : "הרקע הוחלף והמוצר מורכז")
+          const centred = !keepWhole && els.fit.value === "auto";
+          const note = prep.replaced ? (centred ? "הרקע הוחלף והמוצר מורכז" : "הרקע הוחלף")
+            : prep.extend && centred ? "המוצר מורכז בשלמותו על הרקע המקורי"
             : prep.note;
           results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
         }
