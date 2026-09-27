@@ -70,6 +70,10 @@ input[type=color] { width: 60px; height: 38px; border: 1px solid var(--border); 
 
 #processBtn { align-self: end; }
 
+.advanced { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; }
+.advanced summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.advanced .field { margin-top: 12px; max-width: 420px; }
+
 button.primary {
   font: inherit; font-weight: 600;
   background: var(--accent); color: #fff;
@@ -94,6 +98,8 @@ button.primary:disabled { opacity: .5; cursor: not-allowed; }
 .result .name { font-weight: 600; word-break: break-all; direction: ltr; text-align: right; }
 .result .size.ok { color: var(--ok); }
 .result .size.warn { color: var(--warn); }
+.result .info { color: var(--muted); }
+.result .info.warn { color: var(--warn); }
 .result a { color: var(--accent); font-weight: 600; text-decoration: none; }
 
 @media (max-width: 520px) {
