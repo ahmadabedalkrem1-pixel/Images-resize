@@ -4,18 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
-  <header>
-    <h1>שינוי גודל תמונות</h1>
-    <p class="sub">הכל רץ בדפדפן — התמונות לא עולות לשום שרת</p>
+  <header class="hero">
+    <div class="hero-text">
+      <h1>שינוי גודל תמונות</h1>
+      <p class="sub">הכל רץ בדפדפן — התמונות לא עולות לשום שרת</p>
+    </div>
+    <!-- Layered waves drifting at different speeds; the front one matches the page colour. -->
+    <svg class="waves" viewBox="0 24 150 28" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <path id="wave" d="M-160 44c30 0 58-18 88-18s58 18 88 18 58-18 88-18 58 18 88 18v44h-352z"/>
+      </defs>
+      <g class="wave-layers">
+        <use href="#wave" x="48" y="0"/>
+        <use href="#wave" x="48" y="3"/>
+        <use href="#wave" x="48" y="5"/>
+        <use href="#wave" x="48" y="7"/>
+      </g>
+    </svg>
   </header>
 
   <main>
-    <section class="card">
+    <section class="card upload-card">
       <label id="dropzone" class="dropzone" for="fileInput">
         <input type="file" id="fileInput" accept="image/*,.psd" multiple hidden>
+        <span class="drop-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+        </span>
         <strong>גררו תמונות או תיקייה לכאן</strong>
         <span>או לחצו לבחירת קבצים (אפשר כמה ביחד). כולל קבצי פוטושופ (PSD)</span>
       </label>
@@ -124,7 +141,7 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="presets.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
