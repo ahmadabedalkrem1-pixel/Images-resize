@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Resizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>שינוי גודל תמונות</h1>
+    <p class="sub">הכל רץ בדפדפן — התמונות לא עולות לשום שרת</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <label id="dropzone" class="dropzone" for="fileInput">
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+        <strong>גררו תמונות לכאן</strong>
+        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד)</span>
+      </label>
+      <ul id="fileList" class="file-list"></ul>
+    </section>
+
+    <section class="card settings">
+      <div class="field">
+        <label for="preset">גודל</label>
+        <select id="preset"></select>
+      </div>
+
+      <div class="field custom-size" id="customSize" hidden>
+        <label>גודל מותאם (פיקסלים)</label>
+        <div class="row">
+          <input type="number" id="customW" min="1" max="10000" placeholder="רוחב" dir="ltr">
+          <span>×</span>
+          <input type="number" id="customH" min="1" max="10000" placeholder="גובה" dir="ltr">
+        </div>
+        <label class="check"><input type="checkbox" id="keepRatio"> שמירת יחס (הגובה יחושב לפי התמונה)</label>
+      </div>
+
+      <div class="field">
+        <label for="fit">התאמה כשהיחס שונה</label>
+        <select id="fit">
+          <option value="cover">חיתוך (Crop) — ממלא את כל הגודל</option>
+          <option value="contain">התאמה (Fit) — כל התמונה + רקע</option>
+          <option value="stretch">מתיחה (Stretch)</option>
+        </select>
+      </div>
+
+      <div class="field" id="focusField">
+        <label for="focus">איזה חלק לשמור בחיתוך</label>
+        <select id="focus">
+          <option value="center">מרכז</option>
+          <option value="top">למעלה</option>
+          <option value="bottom">למטה</option>
+          <option value="left">שמאל</option>
+          <option value="right">ימין</option>
+        </select>
+      </div>
+
+      <div class="field" id="bgField">
+        <label for="bg">צבע רקע</label>
+        <input type="color" id="bg" value="#ffffff">
+      </div>
+
+      <div class="field">
+        <label for="format">סוג קובץ</label>
+        <select id="format">
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/avif">AVIF</option>
+        </select>
+      </div>
+
+      <div class="field" id="qualityField">
+        <label for="quality">איכות</label>
+        <select id="quality">
+          <option value="0.6">נמוכה</option>
+          <option value="0.8">בינונית</option>
+          <option value="0.92" selected>גבוהה</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="maxKB">גודל קובץ מקסימלי (KB) — לא חובה</label>
+        <input type="number" id="maxKB" min="1" placeholder="למשל 450" dir="ltr">
+      </div>
+
+      <button id="processBtn" class="primary" disabled>שינוי גודל</button>
+    </section>
+
+    <section class="card" id="resultsCard" hidden>
+      <div class="results-head">
+        <h2>תוצאות</h2>
+        <button id="zipBtn" class="primary">הורדת הכל כ-ZIP</button>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+  </main>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="presets.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
