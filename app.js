@@ -16,7 +16,7 @@
   const FIT_NOTES = {
     auto: "מוצר על רקע חלק או לוגו שקוף: מוצג בשלמותו, ממורכז ועם שוליים. אם צריך עוד מקום, הרקע המקורי מורחב. תמונה רגילה: ממלאת את כל הגודל, והעודף נחתך באופן שווה מהצדדים.",
     cover: "התמונה ממלאת את כל הגודל, והחלקים שבולטים מחוץ לו נחתכים.",
-    contain: "כל התמונה נכנסת בלי חיתוך, והשטח שנשאר ממולא בצבע הרקע.",
+    contain: "כל התמונה נכנסת בלי חיתוך. השטח שנשאר ממולא ברקע: בצבע שנבחר, או ברקע המקורי (מורחב או מטושטש).",
     stretch: "התמונה נמתחת בדיוק לגודל. בלי חיתוך ובלי רקע, אבל עלולה להיראות מעוותת.",
   };
 
@@ -29,6 +29,22 @@
   const STEP_TOL = 24, DRIFT_TOL = 100, TINT_TOL = 18;
 
   const resizer = typeof pica === "function" ? pica() : null;
+
+  // After an update, browsers may keep showing a cached copy of the page for a few minutes.
+  // version.txt is always fetched fresh; if it's newer than this script (its ?v=), reload the page
+  // under a new address, which bypasses the cache.
+  const APP_VERSION = parseInt(new URL(document.currentScript.src).searchParams.get("v"), 10) || 0;
+  if (location.protocol.startsWith("http")) {
+    fetch(`version.txt?t=${Date.now()}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.text() : ""))
+      .then((text) => {
+        const latest = parseInt(text, 10);
+        if (latest > APP_VERSION && new URLSearchParams(location.search).get("v") !== String(latest)) {
+          location.replace(`${location.pathname}?v=${latest}`);
+        }
+      })
+      .catch(() => { /* offline or no version file: keep the page as is */ });
+  }
 
   let files = [];
   let results = [];
@@ -197,10 +213,17 @@
       }
     }
 
-    // Only a plain background covers (almost) the whole edge; a regular photo doesn't.
-    const edgeCovered = border.filter((p) => isBg[p]).length / border.length;
+    // A plain background shows along every side of the photo (the product may touch or cross
+    // an edge, but never covers a whole side). A regular photo has at least one side with no
+    // plain background at all, e.g. the ground below a sky.
+    const coverage = (count, at) => { let c = 0; for (let i = 0; i < count; i++) c += isBg[at(i)]; return c / count; };
+    const sides = [
+      coverage(w, (i) => i), coverage(w, (i) => (h - 1) * w + i),
+      coverage(h, (i) => i * w), coverage(h, (i) => i * w + w - 1),
+    ];
+    const total = (sides[0] * w + sides[1] * w + sides[2] * h + sides[3] * h) / (2 * (w + h));
     const removed = tail / n;
-    if (edgeCovered < 0.8 || removed < 0.03 || removed > 0.97) return false;
+    if (Math.min(...sides) < 0.15 || total < 0.6 || removed < 0.03 || removed > 0.97) return false;
 
     // Drop JPEG noise specks left in the background, so they don't throw off the centring.
     for (let y = 1; y < h - 1; y++) {
@@ -254,6 +277,11 @@
     return x1 < 0 ? { x: 0, y: 0, w, h } : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
   }
 
+  // Edges of the photo the product runs into (it was cut off there when photographed).
+  function touchedEdges(box, w, h) {
+    return { top: box.y <= 1, bottom: box.y + box.h >= h - 1, left: box.x <= 1, right: box.x + box.w >= w - 1 };
+  }
+
   // Decide how to treat one uploaded image:
   // - a transparent PNG (logo, cut-out product) is a "product" as is;
   // - a photo with a plain background is a "product" too: its background is removed when a new
@@ -262,19 +290,23 @@
   function prepare(bitmap, bgMode, isJpegFile) {
     if (!isJpegFile) {
       const c = toCanvas(bitmap);
-      if (hasTransparency(c)) return { src: c, product: true, box: contentBox(c) };
+      if (hasTransparency(c)) {
+        const box = contentBox(c);
+        return { src: c, product: true, box, touch: touchedEdges(box, c.width, c.height) };
+      }
     }
     const work = toCanvas(bitmap, MAX_WORK_SIDE);
     const cut = toCanvas(work);
     if (!removePlainBackground(cut)) {
-      if (bgMode === "original") return { src: bitmap, product: false };
+      if (bgMode === "original") return { src: bitmap, product: false, blurFill: true };
       return { src: bitmap, product: false, note: "לא זוהה רקע חלק ואחיד, לכן הרקע המקורי נשאר", warn: true };
     }
     const box = contentBox(cut);
+    const touch = touchedEdges(box, cut.width, cut.height);
     // Keeping the original backdrop: the product is still centred whole, and the backdrop is
     // extended wherever the new size needs more room than the photo has.
-    if (bgMode === "original") return { src: work, product: true, box, extend: true };
-    return { src: cut, product: true, box, replaced: true };
+    if (bgMode === "original") return { src: work, mask: cut, product: true, box, touch, extend: true };
+    return { src: cut, product: true, box, touch, replaced: true };
   }
 
   // ---------- Layout & resizing ----------
@@ -304,11 +336,21 @@
       return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh, dx: 0, dy: 0, dw: W, dh: H };
     }
     // "contain" fits the whole image; "product" fits just the product, with a margin around it.
-    const box = mode === "product" ? { sx: prep.box.x, sy: prep.box.y, sw: prep.box.w, sh: prep.box.h } : whole;
-    const m = mode === "product" ? Math.round(Math.min(W, H) * PRODUCT_MARGIN) : 0;
-    const s = Math.min((W - 2 * m) / box.sw, (H - 2 * m) / box.sh);
+    // A product that was cut off at an edge of the photo stays flush with that edge, without margin.
+    const product = mode === "product";
+    const box = product ? { sx: prep.box.x, sy: prep.box.y, sw: prep.box.w, sh: prep.box.h } : whole;
+    const t = product ? prep.touch : {};
+    const m = product ? Math.round(Math.min(W, H) * PRODUCT_MARGIN) : 0;
+    const mT = t.top ? 0 : m, mB = t.bottom ? 0 : m, mL = t.left ? 0 : m, mR = t.right ? 0 : m;
+    const s = Math.min((W - mL - mR) / box.sw, (H - mT - mB) / box.sh);
     const dw = Math.max(1, Math.round(box.sw * s)), dh = Math.max(1, Math.round(box.sh * s));
-    const dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
+    const place = (size, d, lo, hi, atLo, atHi) =>
+      atLo && !atHi ? 0 : atHi && !atLo ? size - d : Math.round(lo + (size - lo - hi - d) / 2);
+    const dx = place(W, dw, mL, mR, t.left, t.right), dy = place(H, dh, mT, mB, t.top, t.bottom);
+    if (!product && prep.blurFill) {
+      // Regular photo shown whole: the empty bands get a blurred, enlarged copy of the photo.
+      return { ...whole, dx, dy, dw, dh, blurFill: true };
+    }
     if (prep.extend) {
       // The backdrop around the product is shown too: the whole output maps back onto the photo,
       // and whatever falls outside it is filled by extendedCrop.
@@ -320,37 +362,89 @@
   // Cut a region that may reach past the photo's edges, filling the missing parts by stretching
   // the photo's outermost pixels outward, like extending the canvas over a plain studio backdrop.
   // Horizontal first, then vertical from that result, so the corners continue the sides smoothly.
-  function extendedCrop(src, sx, sy, sw, sh) {
+  // Where the product itself reaches an edge, the backdrop line behind it is interpolated from the
+  // backdrop on either side, so the product doesn't smear into the extension.
+  function extendedCrop(src, mask, sx, sy, sw, sh) {
     const cw = Math.max(1, Math.round(sw)), ch = Math.max(1, Math.round(sh));
     const ox = -sx, oy = -sy, iw = src.width, ih = src.height;
-
-    // An edge line averaged over the outermost few pixels, so JPEG noise doesn't turn into streaks.
-    const edgeLine = (from, x, y, w, h, vertical) => {
-      const t = document.createElement("canvas");
-      t.width = vertical ? 1 : w;
-      t.height = vertical ? h : 1;
-      const tctx = t.getContext("2d");
-      tctx.imageSmoothingQuality = "high";
-      tctx.drawImage(from, x, y, w, h, 0, 0, t.width, t.height);
-      return t;
-    };
     const S = Math.min(8, iw, ih);
 
-    const rows = document.createElement("canvas");
-    rows.width = cw;
-    rows.height = ih;
-    const rctx = rows.getContext("2d");
-    if (ox > 0) rctx.drawImage(edgeLine(src, 0, 0, S, ih, true), 0, 0, Math.ceil(ox) + 1, ih);
-    if (ox + iw < cw) rctx.drawImage(edgeLine(src, iw - S, 0, S, ih, true), Math.floor(ox + iw) - 1, 0, cw - Math.floor(ox + iw) + 1, ih);
-    rctx.drawImage(src, ox, 0);
+    // One edge line (1px thick), averaged over the outermost S pixels so JPEG noise doesn't streak.
+    const edgeLine = (from, fromMask, x, y, w, h, vertical) => {
+      const lw = vertical ? 1 : w, lh = vertical ? h : 1;
+      const grab = (img) => {
+        const t = document.createElement("canvas");
+        t.width = lw;
+        t.height = lh;
+        const tctx = t.getContext("2d", { willReadFrequently: true });
+        tctx.imageSmoothingQuality = "high";
+        tctx.drawImage(img, x, y, w, h, 0, 0, lw, lh);
+        return t;
+      };
+      const line = grab(from);
+      if (!fromMask) return line;
+      const lctx = line.getContext("2d", { willReadFrequently: true });
+      const px = lctx.getImageData(0, 0, lw, lh);
+      const a = grab(fromMask).getContext("2d", { willReadFrequently: true }).getImageData(0, 0, lw, lh).data;
+      const d = px.data, len = lw * lh;
+      const bg = (i) => a[i * 4 + 3] < 20; // no product in this part of the edge
+      let prev = -1;
+      for (let i = 0; i <= len; i++) {
+        if (i < len && !bg(i)) continue;
+        // [prev+1, i-1] is product: fill it from the backdrop at prev and i.
+        for (let j = prev + 1; j < i; j++) {
+          const f = prev < 0 ? 1 : i >= len ? 0 : (j - prev) / (i - prev);
+          for (let c = 0; c < 3; c++) {
+            const lo = prev < 0 ? d[i * 4 + c] : d[prev * 4 + c];
+            const hi = i >= len ? d[prev * 4 + c] : d[i * 4 + c];
+            d[j * 4 + c] = lo + (hi - lo) * f;
+          }
+          d[j * 4 + 3] = 255;
+        }
+        prev = i;
+      }
+      if (prev >= 0) lctx.putImageData(px, 0, 0); // if the whole edge is product, leave it as is
+      return line;
+    };
 
-    const out = document.createElement("canvas");
-    out.width = cw;
-    out.height = ch;
-    const octx = out.getContext("2d");
-    if (oy > 0) octx.drawImage(edgeLine(rows, 0, 0, cw, S, false), 0, 0, cw, Math.ceil(oy) + 1);
-    if (oy + ih < ch) octx.drawImage(edgeLine(rows, 0, ih - S, cw, S, false), 0, Math.floor(oy + ih) - 1, cw, ch - Math.floor(oy + ih) + 1);
+    const layer = (w, h) => {
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      return [c, c.getContext("2d")];
+    };
+
+    const [rows, rctx] = layer(cw, ih);
+    const [rowsMask, mctx] = layer(cw, ih);
+    if (ox > 0) rctx.drawImage(edgeLine(src, mask, 0, 0, S, ih, true), 0, 0, Math.ceil(ox) + 1, ih);
+    if (ox + iw < cw) rctx.drawImage(edgeLine(src, mask, iw - S, 0, S, ih, true), Math.floor(ox + iw) - 1, 0, cw - Math.floor(ox + iw) + 1, ih);
+    rctx.drawImage(src, ox, 0);
+    if (mask) mctx.drawImage(mask, ox, 0);
+
+    const [out, octx] = layer(cw, ch);
+    const m = mask ? rowsMask : null;
+    if (oy > 0) octx.drawImage(edgeLine(rows, m, 0, 0, cw, S, false), 0, 0, cw, Math.ceil(oy) + 1);
+    if (oy + ih < ch) octx.drawImage(edgeLine(rows, m, 0, ih - S, cw, S, false), 0, Math.floor(oy + ih) - 1, cw, ch - Math.floor(oy + ih) + 1);
     octx.drawImage(rows, 0, oy);
+    return out;
+  }
+
+  // A soft, enlarged copy of the photo covering W×H, used behind a regular photo shown whole.
+  function blurredBackdrop(src, W, H) {
+    const s = Math.max(W / src.width, H / src.height);
+    const small = document.createElement("canvas");
+    small.width = Math.max(1, Math.round(W / 24));
+    small.height = Math.max(1, Math.round(H / 24));
+    const sctx = small.getContext("2d");
+    sctx.imageSmoothingQuality = "high";
+    const sw = W / s, sh = H / s;
+    sctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, small.width, small.height);
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+    const octx = out.getContext("2d");
+    octx.imageSmoothingQuality = "high";
+    octx.drawImage(small, 0, 0, W, H);
     return out;
   }
 
@@ -375,7 +469,7 @@
     //    semi-transparent edges blend into the final colour rather than into black).
     let crop;
     if (L.extend) {
-      crop = extendedCrop(prep.src, L.sx, L.sy, L.sw, L.sh);
+      crop = extendedCrop(prep.src, prep.mask, L.sx, L.sy, L.sw, L.sh);
     } else {
       crop = document.createElement("canvas");
       crop.width = Math.max(1, Math.round(L.sw));
@@ -397,7 +491,8 @@
     out.width = W;
     out.height = H;
     const octx = out.getContext("2d");
-    if (bg) { octx.fillStyle = bg; octx.fillRect(0, 0, W, H); }
+    if (L.blurFill) octx.drawImage(blurredBackdrop(prep.src, W, H), 0, 0);
+    else if (bg) { octx.fillStyle = bg; octx.fillRect(0, 0, W, H); }
     octx.drawImage(scaled, L.dx, L.dy);
     return out;
   }
@@ -462,10 +557,14 @@
           name += "." + EXT[type];
 
           const centred = !keepWhole && els.fit.value === "auto";
+          const cropped = centred && !prep.product &&
+            Math.abs(t.width / t.height - bitmap.width / bitmap.height) > 0.02;
           const note = prep.replaced ? (centred ? "הרקע הוחלף והמוצר מורכז" : "הרקע הוחלף")
             : prep.extend && centred ? "המוצר מורכז בשלמותו על הרקע המקורי"
-            : prep.note;
-          results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
+            : prep.note || (cropped
+              ? "תמונה רגילה (לא מוצר על רקע חלק), לכן נחתכו שוליים כדי למלא את הגודל. להצגה בלי חיתוך: הגדרות מתקדמות"
+              : "");
+          results.push({ ...out, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn || cropped });
         }
         bitmap.close();
       }
