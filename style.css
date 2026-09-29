@@ -189,6 +189,16 @@ button[hidden] { display: none; }
 .unit { color: var(--muted); font-size: .85rem; direction: ltr; }
 .check.strong { font-weight: 600 !important; font-size: .95rem; }
 .ai-field { background: linear-gradient(135deg, #eef6ff, #f3f0ff); border-radius: 12px; padding: 12px; }
+.ai-progress { display: grid; gap: 6px; margin-top: 4px; }
+.ai-progress[hidden] { display: none; }
+.ai-progress-head { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 600; }
+.ai-progress-track { height: 10px; border-radius: 999px; background: #dfe6f3; overflow: hidden; }
+.ai-progress-track > span {
+  display: block; height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #7c5cff);
+  transition: width .2s;
+}
+.ai-progress.done .ai-progress-track > span { background: var(--ok); }
 .file-list .crop-btn { color: var(--accent); font-size: .85rem; }
 .file-list .crop-btn.cropped { font-weight: 600; }
 #uploadStatus:empty { display: none; }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <header class="hero">
@@ -118,7 +118,11 @@
 
       <div class="field ai-field">
         <label class="check strong"><input type="checkbox" id="aiEnhance"> שיפור איכות עם AI</label>
-        <small class="note">לתמונות קטנות או באיכות נמוכה שצריך להגדיל. ה-AI משחזר חדות ומנקה "קוביות" של JPEG. בפעם הראשונה נטען רכיב של כ-4MB, וכל תמונה לוקחת כמה שניות.</small>
+        <small class="note">ה-AI מצייר את התמונה מחדש: משחזר חדות ומנקה "קוביות" של JPEG. הכי מועיל לתמונות קטנות או באיכות נמוכה. בפעם הראשונה נטען רכיב של כ-4MB, וכל תמונה לוקחת כמה שניות.</small>
+        <div id="aiProgress" class="ai-progress" hidden>
+          <div class="ai-progress-head"><span id="aiProgressLabel"></span><span id="aiProgressPct" dir="ltr">0%</span></div>
+          <div class="ai-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span id="aiProgressBar"></span></div>
+        </div>
       </div>
 
       <details class="advanced">
@@ -195,10 +199,10 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=10"></script>
-  <script src="pdf-import.js?v=10"></script>
-  <script src="crop.js?v=10"></script>
-  <script src="ai-enhance.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="presets.js?v=13"></script>
+  <script src="pdf-import.js?v=13"></script>
+  <script src="crop.js?v=13"></script>
+  <script src="ai-enhance.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

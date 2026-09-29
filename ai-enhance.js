@@ -3,8 +3,7 @@
 // JPEG blocks. The model (~2.4MB) and TensorFlow.js (~1.4MB) load on first use; the model is then
 // kept in the browser's storage for next time.
 window.AiEnhance = (() => {
-  // Larger inputs are scaled down first: the output (4×) is already bigger than any size we make,
-  // and the run time grows with the number of pixels.
+  // The run time grows with the number of pixels, so inputs are never larger than this.
   const MAX_INPUT_SIDE = 1024;
 
   const loadScript = (src) => new Promise((resolve, reject) => {
@@ -33,9 +32,12 @@ window.AiEnhance = (() => {
   }
 
   // Enhance an image; resolves with an ImageBitmap 4× the (possibly reduced) input size.
-  async function enhance(source, onProgress = () => {}) {
+  // maxSide: the long side the result is needed at. A bigger image is first reduced to that, so the
+  // model redraws it at 4× and the final reduction back to size gives a sharp, clean picture, in
+  // far less time than running on every original pixel.
+  async function enhance(source, maxSide, onProgress = () => {}) {
     const u = await ready();
-    const s = Math.min(1, MAX_INPUT_SIDE / Math.max(source.width, source.height));
+    const s = Math.min(1, Math.min(MAX_INPUT_SIDE, maxSide) / Math.max(source.width, source.height));
     const c = document.createElement("canvas");
     c.width = Math.round(source.width * s);
     c.height = Math.round(source.height * s);
