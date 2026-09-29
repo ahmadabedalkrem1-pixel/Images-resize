@@ -10,7 +10,8 @@
     folderInput: $("folderInput"), folderBtn: $("folderBtn"), clearBtn: $("clearBtn"),
     deletePreset: $("deletePreset"), addSize: $("addSize"), newName: $("newName"), newW: $("newW"),
     newH: $("newH"), saveSize: $("saveSize"), shareSize: $("shareSize"), shareNote: $("shareNote"),
-    aiEnhance: $("aiEnhance"), uploadStatus: $("uploadStatus"),
+    aiEnhance: $("aiEnhance"), uploadStatus: $("uploadStatus"), aiProgress: $("aiProgress"),
+    aiProgressLabel: $("aiProgressLabel"), aiProgressPct: $("aiProgressPct"), aiProgressBar: $("aiProgressBar"),
   };
 
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
@@ -472,6 +473,9 @@
     const total = (sides[0] * w + sides[1] * w + sides[2] * h + sides[3] * h) / (2 * (w + h));
     const removed = tail / n;
     if (Math.min(...sides) < 0.15 || total < 0.6 || removed < 0.03 || removed > 0.97) return false;
+    // A studio backdrop also runs down (almost) a whole left or right side. A landscape doesn't:
+    // sky above and road below can both look plain, but the hills between them break the sides.
+    if (Math.max(sides[2], sides[3]) < 0.9) return false;
 
     // Drop JPEG noise specks left in the background, so they don't throw off the centring.
     for (let y = 1; y < h - 1; y++) {
@@ -795,6 +799,8 @@
     const keepWhole = els.preset.value === "original" || (els.preset.value === "custom" && els.keepRatio.checked);
     const bg = backgroundColor(type);
     const usedNames = new Set();
+    els.aiProgress.hidden = true;
+    let aiDone = 0, aiFailed = 0;
 
     try {
       for (const file of files) {
@@ -814,28 +820,44 @@
         const targets = getTargets(bitmap);
         let opaque = file.type === "image/jpeg";
         let aiNote = "";
+        let enhanced = null;
         if (els.aiEnhance.checked) {
           if (!opaque && hasTransparency(toCanvas(bitmap))) {
             aiNote = "שיפור AI לא זמין לתמונה עם שקיפות";
           } else {
-            const label = files.length > 1 ? ` (${files.indexOf(file) + 1}/${files.length})` : "";
+            const index = files.indexOf(file);
+            const label = files.length > 1 ? ` (${index + 1}/${files.length})` : "";
+            const barLabel = files.length > 1 ? `משפר תמונה ${index + 1} מתוך ${files.length}` : "משפר את התמונה";
+            const overall = (pct) => ((index + pct / 100) / files.length) * 100;
             els.processBtn.textContent = `משפר איכות עם AI${label}…`;
+            showAiProgress("טוען את רכיב ה-AI…", overall(0));
             try {
               const neededSide = Math.max(...targets.map((t) => Math.max(t.width, t.height)));
-              const enhanced = await AiEnhance.enhance(bitmap, neededSide, (pct) => {
+              enhanced = await AiEnhance.enhance(bitmap, neededSide, (pct) => {
                 els.processBtn.textContent = `משפר איכות עם AI${label}… ${Math.round(pct)}%`;
+                showAiProgress(barLabel, overall(pct));
               });
-              bitmap.close();
-              bitmap = enhanced;
-              opaque = true;
               aiNote = "האיכות שופרה עם AI";
+              aiDone++;
             } catch {
               aiNote = "שיפור ה-AI נכשל, התמונה עובדה בלעדיו";
+              aiFailed++;
             }
             els.processBtn.textContent = "מעבד…";
           }
         }
-        const prep = prepare(bitmap, els.bgMode.value, opaque);
+        // Product or photo is decided on the image as uploaded: the AI's smoothing can make a
+        // photo's sky or ground look like a plain studio backdrop.
+        let prep = prepare(bitmap, els.bgMode.value, opaque);
+        if (enhanced) {
+          if (prep.product) {
+            const sharper = prepare(enhanced, els.bgMode.value, true);
+            if (sharper.product) prep = sharper;
+            else aiNote = "שיפור ה-AI לא הופעל לתמונה הזו";
+          } else {
+            prep = { ...prep, src: enhanced };
+          }
+        }
         for (const t of targets) {
           const L = layout(prep, t.width, t.height, els.fit.value, keepWhole);
           const canvas = await render(prep, t.width, t.height, L, bg);
@@ -860,6 +882,10 @@
           });
         }
         bitmap.close();
+        enhanced?.close();
+      }
+      if (aiDone || aiFailed) {
+        showAiProgress(aiFailed && !aiDone ? "שיפור ה-AI נכשל" : "השיפור הושלם", 100, !aiFailed || aiDone > 0);
       }
       renderResults();
     } catch (err) {
@@ -868,6 +894,17 @@
       els.processBtn.disabled = files.length === 0;
       els.processBtn.textContent = "שינוי גודל";
     }
+  }
+
+  // Progress bar under the AI option: overall percent across all images being enhanced.
+  function showAiProgress(label, pct, finished = false) {
+    const value = Math.max(0, Math.min(100, Math.round(pct)));
+    els.aiProgress.hidden = false;
+    els.aiProgress.classList.toggle("done", finished);
+    els.aiProgressLabel.textContent = label;
+    els.aiProgressPct.textContent = `${value}%`;
+    els.aiProgressBar.style.width = `${value}%`;
+    els.aiProgressBar.parentElement.setAttribute("aria-valuenow", value);
   }
 
   // ---------- Results ----------

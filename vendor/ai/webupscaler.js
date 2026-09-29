@@ -177,7 +177,7 @@ class WebUpscaler {
           outputTensor.dispose();
           outputTensor = sharpened;
         }
-        const processedTile = this._tensorToImageData(outputTensor);
+        const processedTile = await this._tensorToImageData(outputTensor);
         outputTensor.dispose();
 
         // 合併到輸出
@@ -194,6 +194,13 @@ class WebUpscaler {
 
         current++;
         onProgress((current / total) * 100);
+        // Patched for Image Resizer: let the browser repaint and handle input between tiles, so the
+        // page doesn't freeze. A message-channel task isn't throttled in background tabs.
+        await new Promise((resolve) => {
+          const channel = new MessageChannel();
+          channel.port1.onmessage = () => resolve();
+          channel.port2.postMessage(0);
+        });
       }
     }
 
@@ -240,7 +247,7 @@ class WebUpscaler {
    * Tensor 轉 ImageData
    * @private
    */
-  _tensorToImageData(tensor) {
+  async _tensorToImageData(tensor) {
     const [, height, width] = tensor.shape;
 
     const clipped = tf.tidy(() =>
@@ -251,7 +258,7 @@ class WebUpscaler {
         .clipByValue(0, 255)
     );
 
-    const data = clipped.dataSync();
+    const data = await clipped.data(); // patched: async read, so the page isn't blocked
     clipped.dispose();
 
     // 轉換為 RGBA
