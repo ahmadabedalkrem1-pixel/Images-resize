@@ -183,3 +183,45 @@ button[hidden] { display: none; }
 .result .info { color: var(--muted); }
 .result .info.warn { color: var(--warn); }
 .result a { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+/* ---------- Units, crop button, AI option ---------- */
+
+.unit { color: var(--muted); font-size: .85rem; direction: ltr; }
+.check.strong { font-weight: 600 !important; font-size: .95rem; }
+.ai-field { background: linear-gradient(135deg, #eef6ff, #f3f0ff); border-radius: 12px; padding: 12px; }
+.file-list .crop-btn { color: var(--accent); font-size: .85rem; }
+.file-list .crop-btn.cropped { font-weight: 600; }
+#uploadStatus:empty { display: none; }
+#uploadStatus { display: block; margin-top: 8px; }
+
+/* ---------- Pop-up windows (PDF pages, crop) ---------- */
+
+.modal {
+  border: 0; border-radius: 16px; padding: 0;
+  width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, .3);
+  color: var(--text);
+}
+.modal-wide { width: min(1000px, calc(100vw - 32px)); }
+.modal::backdrop { background: rgba(15, 23, 42, .55); }
+.modal-body { padding: 20px; display: grid; gap: 14px; }
+.modal-body h2 { margin: 0; font-size: 1.2rem; }
+.modal-tools { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.modal-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.modal-actions .link { align-self: center; }
+
+.pdf-pages {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
+  max-height: 55vh; overflow: auto; padding: 4px;
+}
+.pdf-page {
+  display: grid; gap: 6px; justify-items: center; padding: 8px; cursor: pointer;
+  border: 2px solid var(--border); border-radius: 12px; font-size: .85rem;
+}
+.pdf-page:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.pdf-thumb { min-height: 120px; display: grid; place-items: center; }
+.pdf-thumb canvas { max-width: 100%; box-shadow: 0 1px 3px rgba(15, 23, 42, .2); background: #fff; }
+.pdf-mode { display: grid; gap: 6px; }
+
+.crop-area { height: min(60vh, 560px); background: #f1f5f9; border-radius: 12px; overflow: hidden; }
+.crop-area img { display: block; max-width: 100%; }

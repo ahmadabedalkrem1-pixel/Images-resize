@@ -8,3 +8,7 @@ window.PRESETS = [
   { name: "Solution Image",        width: 500, height: 610 },
   { name: "Carousel",              width: 380, height: 260 },
 ];
+
+// רשימת גדלים משותפת (לא חובה): הכתובת של ה-Google Apps Script ששומר גדלים שנוספו "לכל מי שנכנס לאתר".
+// כשהשדה ריק, האפשרות כבויה. הוראות הקמה: "רשימת גדלים משותפת" בקובץ README.md.
+window.SHARED_SIZES_URL = "";
