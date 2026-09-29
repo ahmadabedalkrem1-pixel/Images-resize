@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header class="hero">
@@ -61,8 +61,7 @@
           <input type="number" id="newH" min="1" max="10000" placeholder="גובה" dir="ltr">
           <span class="unit">px</span>
         </div>
-        <label class="check"><input type="checkbox" id="shareSize"> להוסיף לרשימה של כל מי שנכנס לאתר</label>
-        <small id="shareNote" class="note">בלי הסימון, הגודל נשמר רק אצלכם ומסומן ב-★.</small>
+        <small class="note">הגודל נשמר בדפדפן שלכם ומסומן ב-★.</small>
         <button type="button" id="saveSize" class="secondary">שמירה ברשימה</button>
       </div>
 
@@ -151,6 +150,8 @@
     </section>
   </main>
 
+  <footer class="site-footer" dir="ltr">© <span id="year">2026</span> Ahmad &amp; Nofar</footer>
+
   <!-- Choose pages from a PDF -->
   <dialog id="pdfDialog" class="modal">
     <div class="modal-body">
@@ -199,10 +200,10 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=13"></script>
-  <script src="pdf-import.js?v=13"></script>
-  <script src="crop.js?v=13"></script>
-  <script src="ai-enhance.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="presets.js?v=14"></script>
+  <script src="pdf-import.js?v=14"></script>
+  <script src="crop.js?v=14"></script>
+  <script src="ai-enhance.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

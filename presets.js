@@ -7,8 +7,5 @@ window.PRESETS = [
   { name: "Column Image",          width: 510, height: 340 },
   { name: "Solution Image",        width: 500, height: 610 },
   { name: "Carousel",              width: 380, height: 260 },
+  { name: "Product Image",         width: 350, height: 350 },
 ];
-
-// רשימת גדלים משותפת (לא חובה): הכתובת של ה-Google Apps Script ששומר גדלים שנוספו "לכל מי שנכנס לאתר".
-// כשהשדה ריק, האפשרות כבויה. הוראות הקמה: "רשימת גדלים משותפת" בקובץ README.md.
-window.SHARED_SIZES_URL = "";
