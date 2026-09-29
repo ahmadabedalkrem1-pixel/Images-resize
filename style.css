@@ -184,6 +184,13 @@ button[hidden] { display: none; }
 .result .info.warn { color: var(--warn); }
 .result a { color: var(--accent); font-weight: 600; text-decoration: none; }
 
+/* ---------- Footer ---------- */
+
+.site-footer {
+  text-align: center; color: var(--muted); font-size: .82rem;
+  padding: 8px 16px 28px;
+}
+
 /* ---------- Units, crop button, AI option ---------- */
 
 .unit { color: var(--muted); font-size: .85rem; direction: ltr; }
