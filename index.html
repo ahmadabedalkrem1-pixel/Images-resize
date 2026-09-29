@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header class="hero">
@@ -29,18 +29,19 @@
   <main>
     <section class="card upload-card">
       <label id="dropzone" class="dropzone" for="fileInput">
-        <input type="file" id="fileInput" accept="image/*,.psd" multiple hidden>
+        <input type="file" id="fileInput" accept="image/*,.psd,.pdf,application/pdf" multiple hidden>
         <span class="drop-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
         </span>
         <strong>גררו תמונות או תיקייה לכאן</strong>
-        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד). כולל קבצי פוטושופ (PSD)</span>
+        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד). כולל קבצי פוטושופ (PSD) ו-PDF</span>
       </label>
       <div class="upload-actions">
         <input type="file" id="folderInput" webkitdirectory multiple hidden>
         <button type="button" id="folderBtn" class="secondary">בחירת תיקייה</button>
         <button type="button" id="clearBtn" class="link" hidden>ניקוי הרשימה</button>
       </div>
+      <small id="uploadStatus" class="note" aria-live="polite"></small>
       <ul id="fileList" class="file-list"></ul>
     </section>
 
@@ -58,17 +59,20 @@
           <input type="number" id="newW" min="1" max="10000" placeholder="רוחב" dir="ltr">
           <span>×</span>
           <input type="number" id="newH" min="1" max="10000" placeholder="גובה" dir="ltr">
+          <span class="unit">px</span>
         </div>
+        <label class="check"><input type="checkbox" id="shareSize"> להוסיף לרשימה של כל מי שנכנס לאתר</label>
+        <small id="shareNote" class="note">בלי הסימון, הגודל נשמר רק אצלכם ומסומן ב-★.</small>
         <button type="button" id="saveSize" class="secondary">שמירה ברשימה</button>
-        <small class="note">הגודל נשמר בדפדפן שלכם. כדי להוסיף גודל לכל הצוות, עדכנו את הקובץ presets.js.</small>
       </div>
 
       <div class="field custom-size" id="customSize" hidden>
-        <label>גודל מותאם (פיקסלים)</label>
+        <label>גודל מותאם (בפיקסלים)</label>
         <div class="row">
           <input type="number" id="customW" min="1" max="10000" placeholder="רוחב" dir="ltr">
           <span>×</span>
           <input type="number" id="customH" min="1" max="10000" placeholder="גובה" dir="ltr">
+          <span class="unit">px</span>
         </div>
         <label class="check"><input type="checkbox" id="keepRatio"> שמירת יחס (הגובה יחושב לפי התמונה)</label>
       </div>
@@ -112,6 +116,11 @@
         <input type="number" id="maxKB" min="1" placeholder="למשל 450" dir="ltr">
       </div>
 
+      <div class="field ai-field">
+        <label class="check strong"><input type="checkbox" id="aiEnhance"> שיפור איכות עם AI</label>
+        <small class="note">לתמונות קטנות או באיכות נמוכה שצריך להגדיל. ה-AI משחזר חדות ומנקה "קוביות" של JPEG. בפעם הראשונה נטען רכיב של כ-4MB, וכל תמונה לוקחת כמה שניות.</small>
+      </div>
+
       <details class="advanced">
         <summary>הגדרות מתקדמות</summary>
         <div class="field">
@@ -138,10 +147,58 @@
     </section>
   </main>
 
+  <!-- Choose pages from a PDF -->
+  <dialog id="pdfDialog" class="modal">
+    <div class="modal-body">
+      <h2 id="pdfTitle">בחירת עמודים מה-PDF</h2>
+      <div class="modal-tools">
+        <button type="button" id="pdfAll" class="link">בחירת כל העמודים</button>
+        <button type="button" id="pdfNone" class="link">ניקוי הבחירה</button>
+      </div>
+      <div id="pdfPages" class="pdf-pages"></div>
+      <div class="pdf-mode">
+        <label class="check"><input type="radio" name="pdfMode" value="images" checked> לחלץ את התמונות שבתוך העמודים (באיכות המקורית)</label>
+        <label class="check"><input type="radio" name="pdfMode" value="page"> לשמור את העמוד כולו כתמונה</label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="pdfAdd" class="primary">הוספה</button>
+        <button type="button" id="pdfCancel" class="secondary">ביטול</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Crop one image -->
+  <dialog id="cropDialog" class="modal modal-wide">
+    <div class="modal-body">
+      <h2>חיתוך התמונה</h2>
+      <div class="modal-tools">
+        <label for="cropRatio">יחס</label>
+        <select id="cropRatio">
+          <option value="free">חופשי</option>
+          <option value="preset">לפי הגודל שנבחר</option>
+          <option value="1">1:1 (ריבוע)</option>
+          <option value="1.3333">4:3</option>
+          <option value="1.7778">16:9</option>
+          <option value="0.75">3:4</option>
+        </select>
+        <span id="cropSize" class="note" dir="ltr"></span>
+      </div>
+      <div class="crop-area" dir="ltr"><img id="cropImg" alt=""></div>
+      <div class="modal-actions">
+        <button type="button" id="cropSave" class="primary">שמירת החיתוך</button>
+        <button type="button" id="cropReset" class="secondary">בלי חיתוך</button>
+        <button type="button" id="cropCancel" class="link">ביטול</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="presets.js?v=10"></script>
+  <script src="pdf-import.js?v=10"></script>
+  <script src="crop.js?v=10"></script>
+  <script src="ai-enhance.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

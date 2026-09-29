@@ -9,12 +9,16 @@
     processBtn: $("processBtn"), resultsCard: $("resultsCard"), results: $("results"), zipBtn: $("zipBtn"),
     folderInput: $("folderInput"), folderBtn: $("folderBtn"), clearBtn: $("clearBtn"),
     deletePreset: $("deletePreset"), addSize: $("addSize"), newName: $("newName"), newW: $("newW"),
-    newH: $("newH"), saveSize: $("saveSize"),
+    newH: $("newH"), saveSize: $("saveSize"), shareSize: $("shareSize"), shareNote: $("shareNote"),
+    aiEnhance: $("aiEnhance"), uploadStatus: $("uploadStatus"),
   };
 
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
   const SETTINGS_KEY = "image-resizer-settings-v3";
   const USER_PRESETS_KEY = "image-resizer-user-presets";
+  const SHARED_CACHE_KEY = "image-resizer-shared-presets";
+  // Images are enhanced with AI only when they have to be enlarged by more than this.
+  const AI_MIN_ENLARGEMENT = 1.15;
   const QUALITY_LABELS = { "0.6": "נמוכה", "0.8": "בינונית", "0.92": "גבוהה" };
   const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB"];
 
@@ -68,32 +72,84 @@
   function saveUserPresets() {
     try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch { /* storage unavailable */ }
   }
-  const allPresets = () => PRESETS.concat(userPresets);
+
+  // Sizes anyone added "for everyone", kept by the Google Apps Script at SHARED_SIZES_URL.
+  let sharedPresets = [];
+  const sharedEnabled = () => Boolean(window.SHARED_SIZES_URL);
+  const cleanSizes = (list) => (Array.isArray(list) ? list : [])
+    .map((p) => ({ name: String(p.name || "").slice(0, 40), width: Math.round(p.width), height: Math.round(p.height) }))
+    .filter((p) => p.name && p.width > 0 && p.width <= 10000 && p.height > 0 && p.height <= 10000);
+
+  async function loadSharedPresets() {
+    if (!sharedEnabled()) return;
+    // Show the last known list right away, then refresh it.
+    try { sharedPresets = cleanSizes(JSON.parse(localStorage.getItem(SHARED_CACHE_KEY) || "[]")); } catch { /* none cached */ }
+    refillPresets();
+    try {
+      const r = await fetch(window.SHARED_SIZES_URL, { cache: "no-store" });
+      sharedPresets = cleanSizes(await r.json());
+      try { localStorage.setItem(SHARED_CACHE_KEY, JSON.stringify(sharedPresets)); } catch { /* storage unavailable */ }
+      refillPresets();
+    } catch { /* offline or not reachable: keep the cached list */ }
+  }
+
+  async function addSharedPreset(size) {
+    // text/plain keeps it a "simple" request, which Apps Script accepts from any site.
+    const r = await fetch(window.SHARED_SIZES_URL, { method: "POST", body: JSON.stringify(size) });
+    const reply = await r.json();
+    if (!reply.ok) throw new Error(reply.error || "save failed");
+    await loadSharedPresets();
+  }
+
+  const allPresets = () => PRESETS.concat(sharedPresets, userPresets);
+  const sizeLabel = (p) => `${p.name} — ${p.width}×${p.height} px`;
+
+  // Rebuild the list and keep the current choice when it still exists.
+  function refillPresets() {
+    const current = els.preset.value;
+    fillPresets();
+    if ([...els.preset.options].some((o) => o.value === current)) els.preset.value = current;
+    updateVisibility();
+  }
 
   function fillPresets() {
     els.preset.innerHTML = "";
     els.preset.add(new Option("גודל מקורי של התמונה", "original"));
-    PRESETS.forEach((p, i) => {
-      els.preset.add(new Option(`${p.name} — ${p.width}×${p.height}`, String(i)));
-    });
-    userPresets.forEach((p, i) => {
-      els.preset.add(new Option(`${p.name} — ${p.width}×${p.height} ★`, `u${i}`));
-    });
+    PRESETS.forEach((p, i) => els.preset.add(new Option(sizeLabel(p), String(i))));
+    sharedPresets.forEach((p, i) => els.preset.add(new Option(sizeLabel(p), `s${i}`)));
+    userPresets.forEach((p, i) => els.preset.add(new Option(`${sizeLabel(p)} ★`, `u${i}`)));
     els.preset.add(new Option("כל הגדלים ברשימה", "all"));
     els.preset.add(new Option("גודל מותאם (חד-פעמי)…", "custom"));
     els.preset.add(new Option("+ הוספת גודל חדש לרשימה…", "add"));
     updateOriginalLabel();
   }
 
-  function addUserPreset() {
+  async function addUserPreset() {
     const width = parseInt(els.newW.value, 10), height = parseInt(els.newH.value, 10);
     if (!(width > 0 && height > 0)) { alert("יש להזין רוחב וגובה"); return; }
     const name = els.newName.value.trim() || `גודל ${width}×${height}`;
-    userPresets.push({ name, width, height });
-    saveUserPresets();
-    fillPresets();
-    els.preset.value = `u${userPresets.length - 1}`;
+    if (els.shareSize.checked) {
+      els.saveSize.disabled = true;
+      els.saveSize.textContent = "שומר…";
+      try {
+        await addSharedPreset({ name, width, height });
+      } catch {
+        alert("לא ניתן לשמור ברשימה המשותפת כרגע. נסו שוב, או שמרו רק אצלכם.");
+        return;
+      } finally {
+        els.saveSize.disabled = false;
+        els.saveSize.textContent = "שמירה ברשימה";
+      }
+      const i = sharedPresets.findIndex((p) => p.name === name && p.width === width && p.height === height);
+      els.preset.value = i >= 0 ? `s${i}` : "original";
+    } else {
+      userPresets.push({ name, width, height });
+      saveUserPresets();
+      fillPresets();
+      els.preset.value = `u${userPresets.length - 1}`;
+    }
     els.newName.value = els.newW.value = els.newH.value = "";
+    els.shareSize.checked = false;
     updateVisibility();
   }
 
@@ -115,7 +171,7 @@
     }
     try {
       const b = await decodeImage(files[0]);
-      opt.textContent = `גודל מקורי של התמונה — ${b.width}×${b.height}`;
+      opt.textContent = `גודל מקורי של התמונה — ${b.width}×${b.height} px`;
       b.close();
     } catch { /* unreadable file; keep the generic label */ }
   }
@@ -143,12 +199,13 @@
         el.value = s[k];
       });
       if (s.keepRatio != null) els.keepRatio.checked = s.keepRatio;
+      if (s.aiEnhance != null) els.aiEnhance.checked = s.aiEnhance;
     } catch { /* storage unavailable */ }
   }
 
   function saveSettings() {
     try {
-      const s = { keepRatio: els.keepRatio.checked };
+      const s = { keepRatio: els.keepRatio.checked, aiEnhance: els.aiEnhance.checked };
       SAVED_FIELDS.forEach((k) => (s[k] = els[k].value));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
     } catch { /* storage unavailable */ }
@@ -157,6 +214,11 @@
   function updateVisibility() {
     const custom = els.preset.value === "custom";
     els.addSize.hidden = els.preset.value !== "add";
+    els.shareSize.disabled = !sharedEnabled();
+    els.shareNote.textContent = !sharedEnabled()
+      ? "ההוספה לכל המשתמשים עוד לא הופעלה (הוראות בקובץ README). בינתיים הגודל יישמר רק אצלכם ויסומן ב-★."
+      : els.shareSize.checked ? "הגודל יופיע אצל כל מי שנכנס לאתר."
+      : "בלי הסימון, הגודל נשמר רק אצלכם ומסומן ב-★.";
     els.deletePreset.hidden = !els.preset.value.startsWith("u");
     els.customSize.hidden = !custom;
     els.customH.disabled = custom && els.keepRatio.checked;
@@ -173,8 +235,59 @@
   const isImage = (f) => !f.name.startsWith(".") &&
     (f.type.startsWith("image/") || isPsd(f) || /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(f.name));
 
+  // Pick pages from PDFs one at a time; their pictures join the list as PNG files.
+  let pdfQueue = Promise.resolve();
   function addFiles(list) {
-    for (const f of list) if (isImage(f)) files.push(f);
+    const pdfs = [];
+    for (const f of list) {
+      if (PdfImport.isPdf(f)) pdfs.push(f);
+      else if (isImage(f)) files.push(f);
+    }
+    renderFileList();
+    for (const pdf of pdfs) {
+      pdfQueue = pdfQueue.then(async () => {
+        try {
+          const extracted = await PdfImport.choose(pdf, (msg) => { els.uploadStatus.textContent = msg; });
+          files.push(...extracted);
+          renderFileList();
+        } catch (err) {
+          console.error(err);
+          alert(`לא ניתן לפתוח את הקובץ "${pdf.name}"`);
+        } finally {
+          els.uploadStatus.textContent = "";
+        }
+      });
+    }
+  }
+
+  // Manual crops, per file, in the file's own pixels.
+  const crops = new Map();
+
+  // Width/height of the size chosen now, to offer it as the crop shape.
+  function chosenRatio() {
+    const v = els.preset.value;
+    if (v === "custom" && !els.keepRatio.checked) {
+      const w = parseInt(els.customW.value, 10), h = parseInt(els.customH.value, 10);
+      return w > 0 && h > 0 ? w / h : null;
+    }
+    const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : v.startsWith("u") ? userPresets[Number(v.slice(1))]
+      : v.startsWith("s") ? sharedPresets[Number(v.slice(1))] : null;
+    return p ? p.width / p.height : null;
+  }
+
+  async function cropFile(file) {
+    let bitmap;
+    try {
+      bitmap = await decodeImage(file);
+    } catch {
+      alert(`לא ניתן לקרוא את הקובץ "${file.name}"`);
+      return;
+    }
+    const result = await CropTool.open(bitmap, { presetRatio: chosenRatio(), current: crops.get(file) });
+    bitmap.close();
+    if (result === undefined) return;
+    if (result) crops.set(file, result);
+    else crops.delete(file);
     renderFileList();
   }
 
@@ -259,12 +372,18 @@
     files.forEach((f, i) => {
       const li = document.createElement("li");
       li.textContent = f.name;
+      const crop = document.createElement("button");
+      crop.type = "button";
+      crop.className = crops.has(f) ? "crop-btn cropped" : "crop-btn";
+      crop.textContent = crops.has(f) ? "✂ נחתך" : "✂";
+      crop.title = "חיתוך";
+      crop.onclick = () => cropFile(f);
       const rm = document.createElement("button");
       rm.type = "button";
       rm.textContent = "×";
       rm.title = "הסרה";
-      rm.onclick = () => { files.splice(i, 1); renderFileList(); };
-      li.append(rm);
+      rm.onclick = () => { crops.delete(f); files.splice(i, 1); renderFileList(); };
+      li.append(crop, rm);
       els.fileList.append(li);
     });
     els.processBtn.disabled = files.length === 0;
@@ -447,6 +566,7 @@
     if (v === "all") return allPresets();
     if (v === "add") throw new Error("יש לשמור קודם את הגודל החדש, או לבחור גודל מהרשימה");
     if (v.startsWith("u")) return [userPresets[Number(v.slice(1))]];
+    if (v.startsWith("s")) return [sharedPresets[Number(v.slice(1))]];
     if (v !== "custom") return [PRESETS[Number(v)]];
     const w = parseInt(els.customW.value, 10);
     let h = parseInt(els.customH.value, 10);
@@ -685,8 +805,41 @@
         } catch {
           throw new Error(`לא ניתן לקרוא את הקובץ "${file.name}"`);
         }
-        const prep = prepare(bitmap, els.bgMode.value, file.type === "image/jpeg");
-        for (const t of getTargets(bitmap)) {
+        const crop = crops.get(file);
+        if (crop) {
+          const full = bitmap;
+          bitmap = await createImageBitmap(full, crop.x, crop.y, crop.w, crop.h);
+          full.close();
+        }
+        // Sizes are worked out from the image as uploaded (and cropped), before any AI enlargement.
+        const targets = getTargets(bitmap);
+        let opaque = file.type === "image/jpeg";
+        let aiNote = "";
+        if (els.aiEnhance.checked) {
+          const enlargement = Math.max(...targets.map((t) => Math.max(t.width / bitmap.width, t.height / bitmap.height)));
+          if (!opaque && hasTransparency(toCanvas(bitmap))) {
+            aiNote = "שיפור AI לא זמין לתמונה עם שקיפות";
+          } else if (enlargement <= AI_MIN_ENLARGEMENT) {
+            aiNote = "לא נדרש שיפור AI: התמונה גדולה מספיק לגודל הזה";
+          } else {
+            const label = files.length > 1 ? ` (${files.indexOf(file) + 1}/${files.length})` : "";
+            els.processBtn.textContent = `משפר איכות עם AI${label}…`;
+            try {
+              const enhanced = await AiEnhance.enhance(bitmap, (pct) => {
+                els.processBtn.textContent = `משפר איכות עם AI${label}… ${Math.round(pct)}%`;
+              });
+              bitmap.close();
+              bitmap = enhanced;
+              opaque = true;
+              aiNote = "האיכות שופרה עם AI";
+            } catch {
+              aiNote = "שיפור ה-AI נכשל, התמונה עובדה בלעדיו";
+            }
+            els.processBtn.textContent = "מעבד…";
+          }
+        }
+        const prep = prepare(bitmap, els.bgMode.value, opaque);
+        for (const t of targets) {
           const L = layout(prep, t.width, t.height, els.fit.value, keepWhole);
           const canvas = await render(prep, t.width, t.height, L, bg);
           const limit = maxBytes || (t.maxKB ? t.maxKB * 1024 : 0);
@@ -704,7 +857,10 @@
                centred && L.cropped ? "השוליים נחתכו מעט כדי למלא את הגודל" : "",
                L.shownWhole ? "הצורה שונה מאוד מהגודל, לכן התמונה מוצגת בשלמותה בלי חיתוך" : "",
               ].filter(Boolean).join(". ");
-          results.push({ ...out, chosenQuality: quality, name, label: t.name, width: t.width, height: t.height, limit, note, warn: prep.warn });
+          results.push({
+            ...out, chosenQuality: quality, name, label: t.name, width: t.width, height: t.height, limit,
+            note: [aiNote, note].filter(Boolean).join(". "), warn: prep.warn,
+          });
         }
         bitmap.close();
       }
@@ -751,7 +907,7 @@
         <div class="thumb"><img alt=""></div>
         <div class="meta">
           <div class="name"></div>
-          <div>${r.label} · ${r.width}×${r.height}</div>
+          <div>${r.label} · <bdi>${r.width}×${r.height} px</bdi></div>
           <div class="size ${r.limit ? (r.fits ? "ok" : "warn") : ""}">${formatKB(r.blob.size)}${qNote}${sizeNote}</div>
           <div class="info ${r.warn ? "warn" : ""}"></div>
           <a download>הורדה</a>
@@ -792,7 +948,7 @@
   els.dropzone.addEventListener("drop", async (ev) => addFiles(await droppedFiles(ev.dataTransfer)));
   els.folderBtn.addEventListener("click", () => els.folderInput.click());
   els.folderInput.addEventListener("change", () => { addFiles(els.folderInput.files); els.folderInput.value = ""; });
-  els.clearBtn.addEventListener("click", () => { files = []; renderFileList(); });
+  els.clearBtn.addEventListener("click", () => { files = []; crops.clear(); renderFileList(); });
   els.saveSize.addEventListener("click", addUserPreset);
   els.deletePreset.addEventListener("click", deleteUserPreset);
   // Allow pasting an image from the clipboard (e.g. a screenshot).
@@ -802,11 +958,12 @@
   els.bgMode.addEventListener("change", () => {
     if (els.bgMode.value === "transparent" && els.format.value === "image/jpeg") els.format.value = "image/png";
   });
-  [els.preset, els.fit, els.format, els.keepRatio, els.bgMode].forEach((el) => el.addEventListener("change", updateVisibility));
+  [els.preset, els.fit, els.format, els.keepRatio, els.bgMode, els.shareSize].forEach((el) => el.addEventListener("change", updateVisibility));
   els.processBtn.addEventListener("click", processAll);
   els.zipBtn.addEventListener("click", downloadZip);
 
   loadUserPresets();
   fillPresets();
+  loadSharedPresets();
   disableUnsupportedFormats().then(() => { loadSettings(); updateVisibility(); });
 })();
