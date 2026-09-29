@@ -17,8 +17,6 @@
   const SETTINGS_KEY = "image-resizer-settings-v3";
   const USER_PRESETS_KEY = "image-resizer-user-presets";
   const SHARED_CACHE_KEY = "image-resizer-shared-presets";
-  // Images are enhanced with AI only when they have to be enlarged by more than this.
-  const AI_MIN_ENLARGEMENT = 1.15;
   const QUALITY_LABELS = { "0.6": "נמוכה", "0.8": "בינונית", "0.92": "גבוהה" };
   const SAVED_FIELDS = ["preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB"];
 
@@ -128,7 +126,7 @@
     const width = parseInt(els.newW.value, 10), height = parseInt(els.newH.value, 10);
     if (!(width > 0 && height > 0)) { alert("יש להזין רוחב וגובה"); return; }
     const name = els.newName.value.trim() || `גודל ${width}×${height}`;
-    if (els.shareSize.checked) {
+    if (els.shareSize.checked && sharedEnabled()) {
       els.saveSize.disabled = true;
       els.saveSize.textContent = "שומר…";
       try {
@@ -214,9 +212,10 @@
   function updateVisibility() {
     const custom = els.preset.value === "custom";
     els.addSize.hidden = els.preset.value !== "add";
-    els.shareSize.disabled = !sharedEnabled();
-    els.shareNote.textContent = !sharedEnabled()
-      ? "ההוספה לכל המשתמשים עוד לא הופעלה (הוראות בקובץ README). בינתיים הגודל יישמר רק אצלכם ויסומן ב-★."
+    const notConnected = els.shareSize.checked && !sharedEnabled();
+    els.shareNote.className = notConnected ? "hint" : "note";
+    els.shareNote.textContent = notConnected
+      ? "הרשימה המשותפת עוד לא חוברה: צריך הגדרה חד-פעמית (הוראות בקובץ README). עד אז הגודל יישמר רק אצלכם, עם ★."
       : els.shareSize.checked ? "הגודל יופיע אצל כל מי שנכנס לאתר."
       : "בלי הסימון, הגודל נשמר רק אצלכם ומסומן ב-★.";
     els.deletePreset.hidden = !els.preset.value.startsWith("u");
@@ -816,16 +815,14 @@
         let opaque = file.type === "image/jpeg";
         let aiNote = "";
         if (els.aiEnhance.checked) {
-          const enlargement = Math.max(...targets.map((t) => Math.max(t.width / bitmap.width, t.height / bitmap.height)));
           if (!opaque && hasTransparency(toCanvas(bitmap))) {
             aiNote = "שיפור AI לא זמין לתמונה עם שקיפות";
-          } else if (enlargement <= AI_MIN_ENLARGEMENT) {
-            aiNote = "לא נדרש שיפור AI: התמונה גדולה מספיק לגודל הזה";
           } else {
             const label = files.length > 1 ? ` (${files.indexOf(file) + 1}/${files.length})` : "";
             els.processBtn.textContent = `משפר איכות עם AI${label}…`;
             try {
-              const enhanced = await AiEnhance.enhance(bitmap, (pct) => {
+              const neededSide = Math.max(...targets.map((t) => Math.max(t.width, t.height)));
+              const enhanced = await AiEnhance.enhance(bitmap, neededSide, (pct) => {
                 els.processBtn.textContent = `משפר איכות עם AI${label}… ${Math.round(pct)}%`;
               });
               bitmap.close();
