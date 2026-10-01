@@ -16,9 +16,3 @@ window.PRESETS = [
   { name: "Product Image",         width: 350, height: 350 },
 ];
 
-// קבוצות גדלים: בחירה אחת ברשימה מייצרת את כל הגדלים שבקבוצה.
-// sizes — שמות הגדלים, בדיוק כמו ברשימה למעלה.
-window.PRESET_GROUPS = [
-  { name: "דף מוצר",     sizes: ["Product Image", "Solution Image", "Carousel"] },
-  { name: "כתבה / בלוג", sizes: ["Featured image (Lobby)", "Column Image", "Author Profile Pic"] },
-];

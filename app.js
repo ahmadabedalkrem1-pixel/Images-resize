@@ -82,9 +82,7 @@
     try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch { /* storage unavailable */ }
   }
 
-  const GROUPS = window.PRESET_GROUPS || [];
   const allPresets = () => PRESETS.concat(userPresets);
-  const groupSizes = (g) => g.sizes.map((n) => allPresets().find((p) => p.name === n)).filter(Boolean);
 
   // Fixed settings a size carries in presets.js, in words.
   const BG_WORDS = { original: "רקע מקורי", white: "רקע לבן", transparent: "רקע שקוף" };
@@ -117,26 +115,19 @@
       const mine = group("הגדלים שלי");
       userPresets.forEach((p, i) => mine.append(new Option(`${sizeLabel(p)} ★`, `u${i}`)));
     }
-    const groups = group("קבוצות גדלים");
-    GROUPS.forEach((g, i) => groups.append(new Option(`${g.name} (${groupSizes(g).length} גדלים)`, `g${i}`)));
-    groups.append(new Option("כל הגדלים ברשימה", "all"));
     const more = group("עוד");
+    more.append(new Option("כל הגדלים ברשימה", "all"));
     more.append(new Option("גודל מותאם (חד-פעמי)…", "custom"));
     more.append(new Option("+ הוספת גודל חדש לרשימה…", "add"));
     updateOriginalLabel();
   }
 
-  // Under the size list: which sizes a group makes, or a size's fixed settings.
+  // Under the size list: a size's fixed settings, if it has any.
   function updatePresetNote() {
     const v = els.preset.value;
-    let text = "";
-    if (v.startsWith("g")) {
-      text = "הקבוצה כוללת: " + groupSizes(GROUPS[Number(v.slice(1))]).map((p) => `${p.name} (${p.width}×${p.height})`).join(", ");
-    } else {
-      const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : null;
-      const fixed = p && fixedSettingsText(p);
-      if (fixed) text = `הגדרות קבועות לגודל הזה: ${fixed}. הן גוברות על הבחירה למטה.`;
-    }
+    const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : null;
+    const fixed = p && fixedSettingsText(p);
+    const text = fixed ? `הגדרות קבועות לגודל הזה: ${fixed}. הן גוברות על הבחירה למטה.` : "";
     els.presetNote.textContent = text;
     els.presetNote.hidden = !text;
   }
@@ -567,7 +558,6 @@
     const v = els.preset.value;
     if (v === "original") return [{ name: "Original", width: img.width, height: img.height }];
     if (v === "all") return allPresets();
-    if (v.startsWith("g")) return groupSizes(GROUPS[Number(v.slice(1))]);
     if (v === "add") throw new Error("יש לשמור קודם את הגודל החדש, או לבחור גודל מהרשימה");
     if (v.startsWith("u")) return [userPresets[Number(v.slice(1))]];
     if (v !== "custom") return [PRESETS[Number(v)]];
