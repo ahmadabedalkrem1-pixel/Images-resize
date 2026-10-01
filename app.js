@@ -13,12 +13,9 @@
     aiEnhance: $("aiEnhance"), uploadStatus: $("uploadStatus"), aiProgress: $("aiProgress"),
     aiProgressLabel: $("aiProgressLabel"), aiProgressPct: $("aiProgressPct"), aiProgressBar: $("aiProgressBar"),
     presetNote: $("presetNote"), namePattern: $("namePattern"), namePreview: $("namePreview"),
-    adjBrightness: $("adjBrightness"), adjContrast: $("adjContrast"), adjSaturation: $("adjSaturation"),
-    adjSharpness: $("adjSharpness"), adjReset: $("adjReset"), adjustBadge: $("adjustBadge"),
     folderSaveBtn: $("folderSaveBtn"), resultsSummary: $("resultsSummary"),
     viewDialog: $("viewDialog"), viewTitle: $("viewTitle"), viewMeta: $("viewMeta"), compareWrap: $("compareWrap"),
-    compare: $("compare"), viewBefore: $("viewBefore"), viewAfter: $("viewAfter"), compareLine: $("compareLine"),
-    compareRange: $("compareRange"), viewDownload: $("viewDownload"), viewCrop: $("viewCrop"),
+    viewBefore: $("viewBefore"), viewAfter: $("viewAfter"), viewDownload: $("viewDownload"), viewCrop: $("viewCrop"),
     viewActual: $("viewActual"), viewPrev: $("viewPrev"), viewNext: $("viewNext"), viewClose: $("viewClose"),
   };
 
@@ -28,7 +25,6 @@
   const QUALITY_LABELS = { "0.6": "נמוכה", "0.8": "בינונית", "0.92": "גבוהה" };
   const SAVED_FIELDS = [
     "preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB", "namePattern",
-    "adjBrightness", "adjContrast", "adjSaturation", "adjSharpness",
   ];
   const FORMAT_TYPES = { jpeg: "image/jpeg", png: "image/png", webp: "image/webp", avif: "image/avif" };
   const DEFAULT_NAME_PATTERN = "{name}_{size}_{w}x{h}";
@@ -86,9 +82,7 @@
     try { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets)); } catch { /* storage unavailable */ }
   }
 
-  const GROUPS = window.PRESET_GROUPS || [];
   const allPresets = () => PRESETS.concat(userPresets);
-  const groupSizes = (g) => g.sizes.map((n) => allPresets().find((p) => p.name === n)).filter(Boolean);
 
   // Fixed settings a size carries in presets.js, in words.
   const BG_WORDS = { original: "רקע מקורי", white: "רקע לבן", transparent: "רקע שקוף" };
@@ -121,26 +115,19 @@
       const mine = group("הגדלים שלי");
       userPresets.forEach((p, i) => mine.append(new Option(`${sizeLabel(p)} ★`, `u${i}`)));
     }
-    const groups = group("קבוצות גדלים");
-    GROUPS.forEach((g, i) => groups.append(new Option(`${g.name} (${groupSizes(g).length} גדלים)`, `g${i}`)));
-    groups.append(new Option("כל הגדלים ברשימה", "all"));
     const more = group("עוד");
+    more.append(new Option("כל הגדלים ברשימה", "all"));
     more.append(new Option("גודל מותאם (חד-פעמי)…", "custom"));
     more.append(new Option("+ הוספת גודל חדש לרשימה…", "add"));
     updateOriginalLabel();
   }
 
-  // Under the size list: which sizes a group makes, or a size's fixed settings.
+  // Under the size list: a size's fixed settings, if it has any.
   function updatePresetNote() {
     const v = els.preset.value;
-    let text = "";
-    if (v.startsWith("g")) {
-      text = "הקבוצה כוללת: " + groupSizes(GROUPS[Number(v.slice(1))]).map((p) => `${p.name} (${p.width}×${p.height})`).join(", ");
-    } else {
-      const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : null;
-      const fixed = p && fixedSettingsText(p);
-      if (fixed) text = `הגדרות קבועות לגודל הזה: ${fixed}. הן גוברות על הבחירה למטה.`;
-    }
+    const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : null;
+    const fixed = p && fixedSettingsText(p);
+    const text = fixed ? `הגדרות קבועות לגודל הזה: ${fixed}. הן גוברות על הבחירה למטה.` : "";
     els.presetNote.textContent = text;
     els.presetNote.hidden = !text;
   }
@@ -225,7 +212,6 @@
     els.deletePreset.hidden = !els.preset.value.startsWith("u");
     updatePresetNote();
     updateNamePreview();
-    updateAdjustments();
     els.customSize.hidden = !custom;
     els.customH.disabled = custom && els.keepRatio.checked;
     els.fitNote.textContent = FIT_NOTES[els.fit.value];
@@ -572,7 +558,6 @@
     const v = els.preset.value;
     if (v === "original") return [{ name: "Original", width: img.width, height: img.height }];
     if (v === "all") return allPresets();
-    if (v.startsWith("g")) return groupSizes(GROUPS[Number(v.slice(1))]);
     if (v === "add") throw new Error("יש לשמור קודם את הגודל החדש, או לבחור גודל מהרשימה");
     if (v.startsWith("u")) return [userPresets[Number(v.slice(1))]];
     if (v !== "custom") return [PRESETS[Number(v)]];
@@ -728,7 +713,7 @@
     ctx.drawImage(cur, 0, 0, dw, dh);
   }
 
-  async function render(prep, W, H, L, bg, sharpen = null) {
+  async function render(prep, W, H, L, bg) {
     // 1. Cut out the source region (flattened onto the background when it's opaque, so
     //    semi-transparent edges blend into the final colour rather than into black).
     let crop;
@@ -747,7 +732,7 @@
     const scaled = document.createElement("canvas");
     scaled.width = L.dw;
     scaled.height = L.dh;
-    if (resizer) await resizer.resize(crop, scaled, sharpen || undefined);
+    if (resizer) await resizer.resize(crop, scaled);
     else drawHalving(scaled.getContext("2d"), crop, L.dw, L.dh);
 
     // 3. Place it on the final canvas.
@@ -807,47 +792,6 @@
     return { blob: smallest, fits: smallest.size <= maxBytes, quality: 0.05 };
   }
 
-  // ---------- Image corrections ----------
-
-  function readAdjustments() {
-    return {
-      brightness: Number(els.adjBrightness.value), contrast: Number(els.adjContrast.value),
-      saturation: Number(els.adjSaturation.value), sharpness: Number(els.adjSharpness.value),
-    };
-  }
-
-  function updateAdjustments() {
-    for (const el of [els.adjBrightness, els.adjContrast, els.adjSaturation, els.adjSharpness]) {
-      el.nextElementSibling.textContent = el.value > 0 && el !== els.adjSharpness ? `+${el.value}` : el.value;
-    }
-    const a = readAdjustments();
-    els.adjustBadge.hidden = !(a.brightness || a.contrast || a.saturation || a.sharpness);
-  }
-
-  // Brightness, contrast and saturation (each −50…50) on a copy of the image. Only colours change:
-  // transparency is kept, so a background added later stays its exact colour.
-  function adjustColours(src, { brightness, contrast, saturation }) {
-    const c = toCanvas(src);
-    const ctx = c.getContext("2d", { willReadFrequently: true });
-    const img = ctx.getImageData(0, 0, c.width, c.height);
-    const d = img.data;
-    const add = brightness * 2.55;
-    const k = Math.tan(((contrast / 100) + 1) * Math.PI / 4); // contrast slope, 1 at 0
-    const sat = 1 + saturation / 50;
-    for (let i = 0; i < d.length; i += 4) {
-      let r = d[i] + add, g = d[i + 1] + add, b = d[i + 2] + add;
-      r = (r - 128) * k + 128; g = (g - 128) * k + 128; b = (b - 128) * k + 128;
-      const l = 0.299 * r + 0.587 * g + 0.114 * b;
-      d[i] = l + (r - l) * sat; d[i + 1] = l + (g - l) * sat; d[i + 2] = l + (b - l) * sat;
-    }
-    ctx.putImageData(img, 0, 0);
-    return c;
-  }
-
-  // Unsharp mask settings for the resize, like Photoshop's (pica uses the same parameters).
-  const sharpenOptions = (sharpness) =>
-    sharpness > 0 ? { unsharpAmount: sharpness * 2, unsharpRadius: 0.6, unsharpThreshold: 2 } : null;
-
   // ---------- File names ----------
 
   function safeName(s) {
@@ -883,8 +827,8 @@
   // Everything needed to (re)make one output: kept with its result, so a single size can be
   // re-cropped and the before/after view can be drawn later.
   async function makeOutput(job) {
-    const { prep, L, W, H, s, sharpness } = job;
-    const canvas = await render(prep, W, H, L, backgroundColor(s.type, s.bgMode, s.bgColor), sharpenOptions(sharpness));
+    const { prep, L, W, H, s } = job;
+    const canvas = await render(prep, W, H, L, backgroundColor(s.type, s.bgMode, s.bgColor));
     return encode(canvas, s.type, s.quality, s.maxBytes);
   }
 
@@ -903,8 +847,6 @@
       fit: els.fit.value,
     };
     const keepWhole = els.preset.value === "original" || (els.preset.value === "custom" && els.keepRatio.checked);
-    const adjust = readAdjustments();
-    const recolour = adjust.brightness || adjust.contrast || adjust.saturation;
     const usedNames = new Set();
     els.aiProgress.hidden = true;
     let aiDone = 0, aiFailed = 0;
@@ -971,7 +913,6 @@
             }
           }
           prep = { ...prep, original: bitmap, enhanced: Boolean(enhanced) && note === aiNote, aiNote: note };
-          if (recolour) prep.src = adjustColours(prep.src, adjust);
           preps.set(bgMode, prep);
           return prep;
         };
@@ -980,7 +921,7 @@
           const s = settingsFor(t, general);
           const prep = prepFor(s.bgMode);
           const L = layout(prep, t.width, t.height, s.fit, keepWhole);
-          const job = { prep, L, autoL: L, W: t.width, H: t.height, s, sharpness: adjust.sharpness };
+          const job = { prep, L, autoL: L, W: t.width, H: t.height, s };
           const out = await makeOutput(job);
 
           let name = fileName(els.namePattern.value, file.name, t);
@@ -1071,7 +1012,7 @@
         <div class="info warn quality-warning"></div>
         <div class="card-actions">
           <a download>הורדה</a>
-          <button type="button" class="link view-btn">הגדלה ולפני/אחרי</button>
+          <button type="button" class="link view-btn">לפני/אחרי</button>
           <button type="button" class="link crop-size-btn">✂ חיתוך</button>
         </div>
       </div>`;
@@ -1174,16 +1115,10 @@
   async function beforeUrl(r) {
     if (!r.beforeUrl) {
       const plainPrep = { ...r.prep, src: plainSource(r.prep) };
-      const canvas = await render(plainPrep, r.W, r.H, r.L, backgroundColor("image/png", r.s.bgMode, r.s.bgColor), null);
+      const canvas = await render(plainPrep, r.W, r.H, r.L, backgroundColor("image/png", r.s.bgMode, r.s.bgColor));
       r.beforeUrl = URL.createObjectURL(await toBlob(canvas, "image/png"));
     }
     return r.beforeUrl;
-  }
-
-  function setCompare(pct) {
-    els.compareRange.value = pct;
-    els.viewAfter.style.clipPath = `inset(0 0 0 ${pct}%)`;
-    els.compareLine.style.left = `${pct}%`;
   }
 
   async function showInViewer(i) {
@@ -1200,15 +1135,8 @@
   }
 
   async function openViewer(i) {
-    setCompare(50);
     if (!els.viewDialog.open) els.viewDialog.showModal();
     await showInViewer(i);
-  }
-
-  // Drag anywhere on the picture to move the divider.
-  function dragCompare(ev) {
-    const rect = els.compare.getBoundingClientRect();
-    setCompare(Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100)));
   }
 
   // ---------- Save to a folder ----------
@@ -1272,21 +1200,9 @@
   els.zipBtn.addEventListener("click", downloadZip);
   els.folderSaveBtn.addEventListener("click", saveToFolder);
 
-  // Image corrections and file names
-  [els.adjBrightness, els.adjContrast, els.adjSaturation, els.adjSharpness].forEach((el) => el.addEventListener("input", updateAdjustments));
-  els.adjReset.addEventListener("click", () => {
-    [els.adjBrightness, els.adjContrast, els.adjSaturation, els.adjSharpness].forEach((el) => (el.value = 0));
-    updateAdjustments();
-  });
   els.namePattern.addEventListener("input", updateNamePreview);
 
   // Before / after viewer
-  els.compareRange.addEventListener("input", () => setCompare(Number(els.compareRange.value)));
-  els.compare.addEventListener("pointerdown", (ev) => {
-    els.compare.setPointerCapture(ev.pointerId);
-    dragCompare(ev);
-  });
-  els.compare.addEventListener("pointermove", (ev) => { if (ev.buttons) dragCompare(ev); });
   els.viewActual.addEventListener("change", () => els.compareWrap.classList.toggle("actual", els.viewActual.checked));
   els.viewPrev.addEventListener("click", () => viewing > 0 && showInViewer(viewing - 1));
   els.viewNext.addEventListener("click", () => viewing < results.length - 1 && showInViewer(viewing + 1));
