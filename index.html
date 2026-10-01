@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
   <header class="hero">
@@ -49,6 +49,7 @@
       <div class="field">
         <label for="preset">גודל</label>
         <select id="preset"></select>
+        <small id="presetNote" class="note" hidden></small>
         <button type="button" id="deletePreset" class="link" hidden>מחיקת הגודל הזה מהרשימה</button>
       </div>
 
@@ -124,6 +125,32 @@
         </div>
       </div>
 
+      <details class="advanced" id="adjustPanel">
+        <summary>תיקוני תמונה <span id="adjustBadge" class="badge" hidden>פעיל</span></summary>
+        <div class="field slider-field">
+          <label for="adjBrightness">בהירות</label>
+          <input type="range" id="adjBrightness" min="-50" max="50" step="1" value="0">
+          <output for="adjBrightness" dir="ltr">0</output>
+        </div>
+        <div class="field slider-field">
+          <label for="adjContrast">ניגודיות</label>
+          <input type="range" id="adjContrast" min="-50" max="50" step="1" value="0">
+          <output for="adjContrast" dir="ltr">0</output>
+        </div>
+        <div class="field slider-field">
+          <label for="adjSaturation">רוויה</label>
+          <input type="range" id="adjSaturation" min="-50" max="50" step="1" value="0">
+          <output for="adjSaturation" dir="ltr">0</output>
+        </div>
+        <div class="field slider-field">
+          <label for="adjSharpness">חדות</label>
+          <input type="range" id="adjSharpness" min="0" max="100" step="5" value="0">
+          <output for="adjSharpness" dir="ltr">0</output>
+        </div>
+        <button type="button" id="adjReset" class="link">איפוס התיקונים</button>
+        <small class="note">התיקונים חלים על כל התמונות (לא על רקע שנוסף). לסיבוב או יישור של תמונה מסוימת: כפתור ✂ ליד שם הקובץ.</small>
+      </details>
+
       <details class="advanced">
         <summary>הגדרות מתקדמות</summary>
         <div class="field">
@@ -136,6 +163,12 @@
           </select>
           <small id="fitNote" class="note"></small>
         </div>
+        <div class="field">
+          <label for="namePattern">שם הקבצים</label>
+          <input type="text" id="namePattern" dir="ltr" value="{name}_{size}_{w}x{h}" spellcheck="false">
+          <small class="note"><bdi>{name}</bdi> שם הקובץ המקורי · <bdi>{size}</bdi> שם הגודל · <bdi>{w}</bdi>/<bdi>{h}</bdi> רוחב/גובה · <bdi>{date}</bdi> תאריך</small>
+          <small class="note">לדוגמה: <bdi id="namePreview"></bdi></small>
+        </div>
       </details>
 
       <button id="processBtn" class="primary" disabled>שינוי גודל</button>
@@ -144,8 +177,12 @@
     <section class="card" id="resultsCard" hidden>
       <div class="results-head">
         <h2>תוצאות</h2>
-        <button id="zipBtn" class="primary">הורדת הכל כ-ZIP</button>
+        <div class="results-actions">
+          <button type="button" id="folderSaveBtn" class="secondary" hidden>שמירה לתיקייה…</button>
+          <button type="button" id="zipBtn" class="primary">הורדת הכל כ-ZIP</button>
+        </div>
       </div>
+      <div id="resultsSummary" class="results-summary" aria-live="polite"></div>
       <div id="results" class="results"></div>
     </section>
   </main>
@@ -188,6 +225,13 @@
         </select>
         <span id="cropSize" class="note" dir="ltr"></span>
       </div>
+      <div id="cropRotate" class="modal-tools">
+        <button type="button" id="cropLeft" class="secondary" title="סיבוב שמאלה">↺ 90°</button>
+        <button type="button" id="cropRight" class="secondary" title="סיבוב ימינה">↻ 90°</button>
+        <label for="cropStraighten">יישור</label>
+        <input type="range" id="cropStraighten" min="-15" max="15" step="0.5" value="0">
+        <span id="cropAngle" dir="ltr">0°</span>
+      </div>
       <div class="crop-area" dir="ltr"><img id="cropImg" alt=""></div>
       <div class="modal-actions">
         <button type="button" id="cropSave" class="primary">שמירת החיתוך</button>
@@ -197,13 +241,42 @@
     </div>
   </dialog>
 
+  <!-- Large view: before / after -->
+  <dialog id="viewDialog" class="modal modal-wide">
+    <div class="modal-body">
+      <div class="view-head">
+        <h2 id="viewTitle" dir="ltr"></h2>
+        <span id="viewMeta" class="note"></span>
+      </div>
+      <div class="compare-wrap" id="compareWrap">
+        <div class="compare" id="compare" dir="ltr">
+          <img id="viewBefore" alt="לפני" draggable="false">
+          <img id="viewAfter" alt="אחרי" draggable="false">
+          <div class="compare-line" id="compareLine"></div>
+          <span class="compare-tag tag-before">לפני</span>
+          <span class="compare-tag tag-after">אחרי</span>
+        </div>
+      </div>
+      <input type="range" id="compareRange" dir="ltr" min="0" max="100" value="50" aria-label="השוואה בין לפני לאחרי">
+      <div class="modal-actions">
+        <a id="viewDownload" class="primary button-link" download>הורדה</a>
+        <button type="button" id="viewCrop" class="secondary">✂ התאמת החיתוך לגודל הזה</button>
+        <label class="check"><input type="checkbox" id="viewActual"> גודל אמיתי (100%)</label>
+        <span class="spacer"></span>
+        <button type="button" id="viewPrev" class="link">→ הקודם</button>
+        <button type="button" id="viewNext" class="link">הבא ←</button>
+        <button type="button" id="viewClose" class="link">סגירה</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=14"></script>
-  <script src="pdf-import.js?v=14"></script>
-  <script src="crop.js?v=14"></script>
-  <script src="ai-enhance.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="presets.js?v=15"></script>
+  <script src="pdf-import.js?v=15"></script>
+  <script src="crop.js?v=15"></script>
+  <script src="ai-enhance.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
