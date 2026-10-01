@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <header class="hero">
@@ -125,32 +125,6 @@
         </div>
       </div>
 
-      <details class="advanced" id="adjustPanel">
-        <summary>תיקוני תמונה <span id="adjustBadge" class="badge" hidden>פעיל</span></summary>
-        <div class="field slider-field">
-          <label for="adjBrightness">בהירות</label>
-          <input type="range" id="adjBrightness" min="-50" max="50" step="1" value="0">
-          <output for="adjBrightness" dir="ltr">0</output>
-        </div>
-        <div class="field slider-field">
-          <label for="adjContrast">ניגודיות</label>
-          <input type="range" id="adjContrast" min="-50" max="50" step="1" value="0">
-          <output for="adjContrast" dir="ltr">0</output>
-        </div>
-        <div class="field slider-field">
-          <label for="adjSaturation">רוויה</label>
-          <input type="range" id="adjSaturation" min="-50" max="50" step="1" value="0">
-          <output for="adjSaturation" dir="ltr">0</output>
-        </div>
-        <div class="field slider-field">
-          <label for="adjSharpness">חדות</label>
-          <input type="range" id="adjSharpness" min="0" max="100" step="5" value="0">
-          <output for="adjSharpness" dir="ltr">0</output>
-        </div>
-        <button type="button" id="adjReset" class="link">איפוס התיקונים</button>
-        <small class="note">התיקונים חלים על כל התמונות (לא על רקע שנוסף). לסיבוב או יישור של תמונה מסוימת: כפתור ✂ ליד שם הקובץ.</small>
-      </details>
-
       <details class="advanced">
         <summary>הגדרות מתקדמות</summary>
         <div class="field">
@@ -248,16 +222,16 @@
         <h2 id="viewTitle" dir="ltr"></h2>
         <span id="viewMeta" class="note"></span>
       </div>
-      <div class="compare-wrap" id="compareWrap">
-        <div class="compare" id="compare" dir="ltr">
-          <img id="viewBefore" alt="לפני" draggable="false">
-          <img id="viewAfter" alt="אחרי" draggable="false">
-          <div class="compare-line" id="compareLine"></div>
-          <span class="compare-tag tag-before">לפני</span>
-          <span class="compare-tag tag-after">אחרי</span>
-        </div>
+      <div class="side-by-side" id="compareWrap">
+        <figure>
+          <figcaption>לפני</figcaption>
+          <div class="pane"><img id="viewBefore" alt="לפני"></div>
+        </figure>
+        <figure>
+          <figcaption>אחרי</figcaption>
+          <div class="pane"><img id="viewAfter" alt="אחרי"></div>
+        </figure>
       </div>
-      <input type="range" id="compareRange" dir="ltr" min="0" max="100" value="50" aria-label="השוואה בין לפני לאחרי">
       <div class="modal-actions">
         <a id="viewDownload" class="primary button-link" download>הורדה</a>
         <button type="button" id="viewCrop" class="secondary">✂ התאמת החיתוך לגודל הזה</button>
@@ -273,10 +247,10 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=15"></script>
-  <script src="pdf-import.js?v=15"></script>
-  <script src="crop.js?v=15"></script>
-  <script src="ai-enhance.js?v=15"></script>
-  <script src="app.js?v=15"></script>
+  <script src="presets.js?v=16"></script>
+  <script src="pdf-import.js?v=16"></script>
+  <script src="crop.js?v=16"></script>
+  <script src="ai-enhance.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
