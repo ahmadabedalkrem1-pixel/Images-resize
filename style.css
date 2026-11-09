@@ -177,7 +177,7 @@ button[hidden] { display: none; }
 }
 .result img { max-width: 100%; max-height: 160px; }
 .result .meta { padding: 10px 12px 12px; font-size: .82rem; display: grid; gap: 4px; }
-.result .name { font-weight: 600; word-break: break-all; direction: ltr; text-align: right; }
+.result .name { font-weight: 600; word-break: break-all; }
 .result .size.ok { color: var(--ok); }
 .result .size.warn { color: var(--warn); }
 .result .info { color: var(--muted); }
@@ -193,7 +193,7 @@ button[hidden] { display: none; }
 
 /* ---------- Units, crop button, AI option ---------- */
 
-.unit { color: var(--muted); font-size: .85rem; direction: ltr; }
+.unit { color: var(--muted); font-size: .85rem; }
 .check.strong { font-weight: 600 !important; font-size: .95rem; }
 .ai-field { background: linear-gradient(135deg, #eef6ff, #f3f0ff); border-radius: 12px; padding: 12px; }
 .ai-progress { display: grid; gap: 6px; margin-top: 4px; }

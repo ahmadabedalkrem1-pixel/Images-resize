@@ -22,7 +22,7 @@
   const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
   const SETTINGS_KEY = "image-resizer-settings-v3";
   const USER_PRESETS_KEY = "image-resizer-user-presets";
-  const QUALITY_LABELS = { "0.6": "נמוכה", "0.8": "בינונית", "0.92": "גבוהה" };
+  const QUALITY_LABELS = { "0.6": "low", "0.8": "medium", "0.92": "high" };
   const SAVED_FIELDS = [
     "preset", "customW", "customH", "fit", "bgMode", "bg", "format", "quality", "maxKB", "namePattern",
   ];
@@ -32,10 +32,10 @@
   const BLURRY_ENLARGEMENT = 1.5;
 
   const FIT_NOTES = {
-    auto: "מוצר על רקע חלק או לוגו שקוף: מוצג בשלמותו, ממורכז ועם שוליים. תמונה רגילה: ממלאת את הגודל עם חיתוך קטן מהצדדים. אם החיתוך היה מוריד יותר מ-35% מהתמונה, היא מוצגת בשלמותה, והשטח שנשאר ממולא ברקע מטושטש מהתמונה (או בצבע הרקע שנבחר).",
-    cover: "התמונה ממלאת את כל הגודל, והחלקים שבולטים מחוץ לו נחתכים.",
-    contain: "כל התמונה נכנסת בלי חיתוך. השטח שנשאר ממולא ברקע: בצבע שנבחר, או ברקע המקורי (מורחב או מטושטש).",
-    stretch: "התמונה נמתחת בדיוק לגודל. בלי חיתוך ובלי רקע, אבל עלולה להיראות מעוותת.",
+    auto: "A product on a plain background, or a transparent logo: shown whole, centred, with a margin. A regular photo: fills the size, with a small crop at the sides. If cropping would remove more than 35% of the photo, it is shown whole and the rest of the area is filled with a blurred background from the photo (or the chosen background colour).",
+    cover: "The image fills the whole size, and the parts that stick out are cropped.",
+    contain: "The whole image fits without cropping. The remaining area is filled with background: the chosen colour, or the original background (extended or blurred).",
+    stretch: "The image is stretched to the exact size. No cropping and no background, but it may look distorted.",
   };
 
   // Empty space kept around a centred product, as a share of the shorter side.
@@ -85,13 +85,13 @@
   const allPresets = () => PRESETS.concat(userPresets);
 
   // Fixed settings a size carries in presets.js, in words.
-  const BG_WORDS = { original: "רקע מקורי", white: "רקע לבן", transparent: "רקע שקוף" };
-  const FIT_WORDS = { auto: "מיקום אוטומטי", cover: "ממלא את הגודל", contain: "בלי חיתוך" };
+  const BG_WORDS = { original: "original background", white: "white background", transparent: "transparent background" };
+  const FIT_WORDS = { auto: "automatic placement", cover: "fills the size", contain: "no cropping", stretch: "stretched" };
   function fixedSettingsText(p) {
     return [
-      p.background && (BG_WORDS[p.background] || `רקע ${p.background}`),
+      p.background && (BG_WORDS[p.background] || `background ${p.background}`),
       p.format && String(p.format).toUpperCase(),
-      p.maxKB && `עד ${p.maxKB}KB`,
+      p.maxKB && `up to ${p.maxKB}KB`,
       p.fit && FIT_WORDS[p.fit],
     ].filter(Boolean).join(", ");
   }
@@ -108,17 +108,17 @@
       els.preset.append(g);
       return g;
     };
-    els.preset.add(new Option("גודל מקורי של התמונה", "original"));
-    const builtIn = group("גדלים");
+    els.preset.add(new Option("Original image size", "original"));
+    const builtIn = group("Sizes");
     PRESETS.forEach((p, i) => builtIn.append(new Option(sizeLabel(p), String(i))));
     if (userPresets.length) {
-      const mine = group("הגדלים שלי");
+      const mine = group("My sizes");
       userPresets.forEach((p, i) => mine.append(new Option(`${sizeLabel(p)} ★`, `u${i}`)));
     }
-    const more = group("עוד");
-    more.append(new Option("כל הגדלים ברשימה", "all"));
-    more.append(new Option("גודל מותאם (חד-פעמי)…", "custom"));
-    more.append(new Option("+ הוספת גודל חדש לרשימה…", "add"));
+    const more = group("More");
+    more.append(new Option("All sizes in the list", "all"));
+    more.append(new Option("Custom size (one-off)…", "custom"));
+    more.append(new Option("+ Add a new size to the list…", "add"));
     updateOriginalLabel();
   }
 
@@ -127,15 +127,15 @@
     const v = els.preset.value;
     const p = /^\d+$/.test(v) ? PRESETS[Number(v)] : null;
     const fixed = p && fixedSettingsText(p);
-    const text = fixed ? `הגדרות קבועות לגודל הזה: ${fixed}. הן גוברות על הבחירה למטה.` : "";
+    const text = fixed ? `Fixed settings for this size: ${fixed}. They override the choices below.` : "";
     els.presetNote.textContent = text;
     els.presetNote.hidden = !text;
   }
 
   function addUserPreset() {
     const width = parseInt(els.newW.value, 10), height = parseInt(els.newH.value, 10);
-    if (!(width > 0 && height > 0)) { alert("יש להזין רוחב וגובה"); return; }
-    const name = els.newName.value.trim() || `גודל ${width}×${height}`;
+    if (!(width > 0 && height > 0)) { alert("Please enter a width and a height"); return; }
+    const name = els.newName.value.trim() || `Size ${width}×${height}`;
     userPresets.push({ name, width, height });
     saveUserPresets();
     fillPresets();
@@ -146,7 +146,7 @@
 
   function deleteUserPreset() {
     const i = Number(els.preset.value.slice(1));
-    if (!confirm(`למחוק את "${userPresets[i].name}" מהרשימה?`)) return;
+    if (!confirm(`Delete "${userPresets[i].name}" from the list?`)) return;
     userPresets.splice(i, 1);
     saveUserPresets();
     fillPresets();
@@ -158,13 +158,13 @@
   async function updateOriginalLabel() {
     const opt = els.preset.querySelector('option[value="original"]');
     if (files.length !== 1) {
-      opt.textContent = files.length > 1 ? "גודל מקורי של כל תמונה" : "גודל מקורי של התמונה";
+      opt.textContent = files.length > 1 ? "Original size of each image" : "Original image size";
       updateNamePreview();
       return;
     }
     try {
       const b = await decodeImage(files[0]);
-      opt.textContent = `גודל מקורי של התמונה — ${b.width}×${b.height} px`;
+      opt.textContent = `Original image size — ${b.width}×${b.height} px`;
       firstImageSize = { width: b.width, height: b.height };
       b.close();
       updateNamePreview();
@@ -178,7 +178,7 @@
       const blob = await new Promise((r) => c.toBlob(r, opt.value));
       if (!blob || blob.type !== opt.value) {
         opt.disabled = true;
-        opt.textContent += " (לא נתמך בדפדפן הזה)";
+        opt.textContent += " (not supported in this browser)";
       }
     }
     if (els.format.selectedOptions[0]?.disabled) els.format.value = "image/jpeg";
@@ -244,7 +244,7 @@
           renderFileList();
         } catch (err) {
           console.error(err);
-          alert(`לא ניתן לפתוח את הקובץ "${pdf.name}"`);
+          alert(`Could not open the file "${pdf.name}"`);
         } finally {
           els.uploadStatus.textContent = "";
         }
@@ -271,7 +271,7 @@
     try {
       bitmap = await decodeImage(file);
     } catch {
-      alert(`לא ניתן לקרוא את הקובץ "${file.name}"`);
+      alert(`Could not read the file "${file.name}"`);
       return;
     }
     const result = await CropTool.open(bitmap, { presetRatio: chosenRatio(), current: crops.get(file), allowRotate: true });
@@ -311,7 +311,7 @@
       const s = document.createElement("script");
       s.src = "vendor/ag-psd.min.js";
       s.onload = () => resolve(window.agPsd);
-      s.onerror = () => { psdLib = null; reject(new Error("לא ניתן לטעון את רכיב קריאת קבצי הפוטושופ")); };
+      s.onerror = () => { psdLib = null; reject(new Error("Could not load the Photoshop file reader")); };
       document.head.append(s);
     });
     return psdLib;
@@ -366,13 +366,13 @@
       const crop = document.createElement("button");
       crop.type = "button";
       crop.className = crops.has(f) ? "crop-btn cropped" : "crop-btn";
-      crop.textContent = crops.has(f) ? "✂ נערך" : "✂";
-      crop.title = "חיתוך, סיבוב ויישור";
+      crop.textContent = crops.has(f) ? "✂ Edited" : "✂";
+      crop.title = "Crop, rotate and straighten";
       crop.onclick = () => cropFile(f);
       const rm = document.createElement("button");
       rm.type = "button";
       rm.textContent = "×";
-      rm.title = "הסרה";
+      rm.title = "Remove";
       rm.onclick = () => { crops.delete(f); files.splice(i, 1); renderFileList(); };
       li.append(crop, rm);
       els.fileList.append(li);
@@ -542,7 +542,7 @@
     const cut = toCanvas(work);
     if (!removePlainBackground(cut)) {
       if (bgMode === "original") return { src: bitmap, product: false, blurFill: true };
-      return { src: bitmap, product: false, note: "לא זוהה רקע חלק ואחיד, לכן הרקע המקורי נשאר", warn: true };
+      return { src: bitmap, product: false, note: "No plain, even background was detected, so the original background was kept", warn: true };
     }
     const box = contentBox(cut);
     const touch = touchedEdges(box, cut.width, cut.height);
@@ -558,13 +558,13 @@
     const v = els.preset.value;
     if (v === "original") return [{ name: "Original", width: img.width, height: img.height }];
     if (v === "all") return allPresets();
-    if (v === "add") throw new Error("יש לשמור קודם את הגודל החדש, או לבחור גודל מהרשימה");
+    if (v === "add") throw new Error("Save the new size first, or choose a size from the list");
     if (v.startsWith("u")) return [userPresets[Number(v.slice(1))]];
     if (v !== "custom") return [PRESETS[Number(v)]];
     const w = parseInt(els.customW.value, 10);
     let h = parseInt(els.customH.value, 10);
     if (els.keepRatio.checked && w > 0) h = Math.round((w * img.height) / img.width);
-    if (!(w > 0 && h > 0)) throw new Error("יש להזין רוחב וגובה");
+    if (!(w > 0 && h > 0)) throw new Error("Please enter a width and a height");
     return [{ name: "Custom", width: w, height: h }];
   }
 
@@ -836,7 +836,7 @@
     saveSettings();
     clearResults();
     els.processBtn.disabled = true;
-    els.processBtn.textContent = "מעבד…";
+    els.processBtn.textContent = "Processing…";
 
     const general = {
       type: els.format.value,
@@ -857,7 +857,7 @@
         try {
           bitmap = await decodeImage(file);
         } catch {
-          throw new Error(`לא ניתן לקרוא את הקובץ "${file.name}"`);
+          throw new Error(`Could not read the file "${file.name}"`);
         }
         const crop = crops.get(file);
         if (crop) {
@@ -872,26 +872,26 @@
         let enhanced = null;
         if (els.aiEnhance.checked) {
           if (!opaque && hasTransparency(toCanvas(bitmap))) {
-            aiNote = "שיפור AI לא זמין לתמונה עם שקיפות";
+            aiNote = "AI enhancement is not available for images with transparency";
           } else {
             const label = files.length > 1 ? ` (${index + 1}/${files.length})` : "";
-            const barLabel = files.length > 1 ? `משפר תמונה ${index + 1} מתוך ${files.length}` : "משפר את התמונה";
+            const barLabel = files.length > 1 ? `Enhancing image ${index + 1} of ${files.length}` : "Enhancing the image";
             const overall = (pct) => ((index + pct / 100) / files.length) * 100;
-            els.processBtn.textContent = `משפר איכות עם AI${label}…`;
-            showAiProgress("טוען את רכיב ה-AI…", overall(0));
+            els.processBtn.textContent = `Enhancing with AI${label}…`;
+            showAiProgress("Loading the AI component…", overall(0));
             try {
               const neededSide = Math.max(...targets.map((t) => Math.max(t.width, t.height)));
               enhanced = await AiEnhance.enhance(bitmap, neededSide, (pct) => {
-                els.processBtn.textContent = `משפר איכות עם AI${label}… ${Math.round(pct)}%`;
+                els.processBtn.textContent = `Enhancing with AI${label}… ${Math.round(pct)}%`;
                 showAiProgress(barLabel, overall(pct));
               });
-              aiNote = "האיכות שופרה עם AI";
+              aiNote = "Quality enhanced with AI";
               aiDone++;
             } catch {
-              aiNote = "שיפור ה-AI נכשל, התמונה עובדה בלעדיו";
+              aiNote = "AI enhancement failed; the image was processed without it";
               aiFailed++;
             }
-            els.processBtn.textContent = "מעבד…";
+            els.processBtn.textContent = "Processing…";
           }
         }
 
@@ -907,7 +907,7 @@
             if (prep.product) {
               const sharper = prepare(enhanced, bgMode, true);
               if (sharper.product) prep = sharper;
-              else note = "שיפור ה-AI לא הופעל לתמונה הזו";
+              else note = "AI enhancement was not applied to this image";
             } else {
               prep = { ...prep, src: enhanced };
             }
@@ -929,11 +929,11 @@
           usedNames.add(name.toLowerCase());
 
           const centred = !keepWhole && s.fit === "auto";
-          const placeNote = prep.replaced ? (centred ? "הרקע הוחלף והמוצר מורכז" : "הרקע הוחלף")
-            : prep.extend && centred ? "המוצר מורכז בשלמותו על הרקע המקורי"
+          const placeNote = prep.replaced ? (centred ? "Background replaced and product centred" : "Background replaced")
+            : prep.extend && centred ? "Product centred in full on the original background"
             : [prep.note,
-               centred && L.cropped ? "השוליים נחתכו מעט כדי למלא את הגודל" : "",
-               L.shownWhole ? "הצורה שונה מאוד מהגודל, לכן התמונה מוצגת בשלמותה בלי חיתוך" : "",
+               centred && L.cropped ? "The edges were trimmed slightly to fill the size" : "",
+               L.shownWhole ? "The shape is very different from the size, so the image is shown whole without cropping" : "",
               ].filter(Boolean).join(". ");
           // Quality check: how many output pixels each source pixel has to cover.
           const enlargement = L.dw / L.sw;
@@ -942,23 +942,23 @@
             ...out, ...job, file: index,
             name: `${name}.${EXT[s.type]}`, label: t.name, width: t.width, height: t.height,
             limit: s.maxBytes, chosenQuality: s.quality,
-            aiNote: prep.aiNote, placeNote, fixedNote: s.fixed && `הגדרות קבועות לגודל: ${s.fixed}`,
+            aiNote: prep.aiNote, placeNote, fixedNote: s.fixed && `Fixed settings for the size: ${s.fixed}`,
             warning: blurry
-              ? `התמונה המקורית קטנה לגודל הזה (הגדלה פי ${enlargement.toFixed(1)}) ועלולה להיראות מטושטשת. כדאי לסמן "שיפור איכות עם AI".`
+              ? `The original image is small for this size (enlarged ${enlargement.toFixed(1)}×) and may look blurry. Consider ticking "AI quality enhancement".`
               : "",
             warn: prep.warn,
           });
         }
       }
       if (aiDone || aiFailed) {
-        showAiProgress(aiFailed && !aiDone ? "שיפור ה-AI נכשל" : "השיפור הושלם", 100, !aiFailed || aiDone > 0);
+        showAiProgress(aiFailed && !aiDone ? "AI enhancement failed" : "Enhancement complete", 100, !aiFailed || aiDone > 0);
       }
       renderResults();
     } catch (err) {
-      alert(err.message || "שגיאה בעיבוד התמונה");
+      alert(err.message || "Error while processing the image");
     } finally {
       els.processBtn.disabled = files.length === 0;
-      els.processBtn.textContent = "שינוי גודל";
+      els.processBtn.textContent = "Resize";
     }
   }
 
@@ -994,16 +994,16 @@
     let sizeNote = "";
     if (r.limit) {
       sizeNote = r.fits
-        ? ` ✓ מתחת ל-<bdi>${Math.round(r.limit / 1024)} KB</bdi>`
-        : ` ⚠ מעל <bdi>${Math.round(r.limit / 1024)} KB</bdi>` +
-          (r.blob.type === "image/png" ? " — PNG לא נדחס, נסו JPEG/WebP" : "");
+        ? ` ✓ under <bdi>${Math.round(r.limit / 1024)} KB</bdi>`
+        : ` ⚠ over <bdi>${Math.round(r.limit / 1024)} KB</bdi>` +
+          (r.blob.type === "image/png" ? " — PNG does not compress well; try JPEG/WebP" : "");
     }
     const qNote = r.blob.type === "image/png" ? ""
-      : r.quality < r.chosenQuality - 0.001 ? " · האיכות הותאמה למגבלת הגודל"
-      : ` · איכות ${QUALITY_LABELS[String(r.chosenQuality)] || ""}`;
+      : r.quality < r.chosenQuality - 0.001 ? " · quality adjusted to the size limit"
+      : QUALITY_LABELS[String(r.chosenQuality)] ? ` · ${QUALITY_LABELS[String(r.chosenQuality)]} quality` : "";
 
     div.innerHTML = `
-      <button type="button" class="thumb" title="תצוגה מוגדלת והשוואה למקור"><img alt=""></button>
+      <button type="button" class="thumb" title="Large view and comparison with the original"><img alt=""></button>
       <div class="meta">
         <div class="name"></div>
         <div>${r.label} · <bdi>${r.width}×${r.height} px</bdi></div>
@@ -1011,15 +1011,15 @@
         <div class="info ${r.warn ? "warn" : ""}"></div>
         <div class="info warn quality-warning"></div>
         <div class="card-actions">
-          <a download>הורדה</a>
-          <button type="button" class="link view-btn">לפני/אחרי</button>
-          <button type="button" class="link crop-size-btn">✂ חיתוך</button>
+          <a download>Download</a>
+          <button type="button" class="link view-btn">Before/after</button>
+          <button type="button" class="link crop-size-btn">✂ Crop</button>
         </div>
       </div>`;
     div.querySelector("img").src = r.url;
     div.querySelector(".name").textContent = r.name;
     const info = div.querySelector(".info");
-    info.textContent = [r.aiNote, r.manualCrop ? "החיתוך הותאם ידנית" : r.placeNote, r.fixedNote].filter(Boolean).join(". ");
+    info.textContent = [r.aiNote, r.manualCrop ? "Crop adjusted manually" : r.placeNote, r.fixedNote].filter(Boolean).join(". ");
     info.hidden = !info.textContent;
     const warning = div.querySelector(".quality-warning");
     warning.textContent = r.warning ? `⚠ ${r.warning}` : "";
@@ -1036,8 +1036,8 @@
     const total = results.reduce((sum, r) => sum + r.blob.size, 0);
     const warnings = results.filter((r) => r.warning || (r.limit && !r.fits)).length;
     els.resultsSummary.innerHTML =
-      `${results.length} קבצים מוכנים · סה"כ ${formatKB(total)}` +
-      (warnings ? ` · <span class="warn">⚠ ${warnings} עם אזהרה</span>` : "") +
+      `${results.length} ${results.length === 1 ? "file" : "files"} ready · ${formatKB(total)} in total` +
+      (warnings ? ` · <span class="warn">⚠ ${warnings} with a warning</span>` : "") +
       (extra ? ` · <span class="ok"></span>` : "");
     if (extra) els.resultsSummary.querySelector(".ok").textContent = extra;
   }
@@ -1102,7 +1102,7 @@
     }
     const enlargement = r.L.dw / r.L.sw;
     r.warning = !r.prep.enhanced && enlargement > BLURRY_ENLARGEMENT
-      ? `התמונה המקורית קטנה לגודל הזה (הגדלה פי ${enlargement.toFixed(1)}) ועלולה להיראות מטושטשת. כדאי לסמן "שיפור איכות עם AI".`
+      ? `The original image is small for this size (enlarged ${enlargement.toFixed(1)}×) and may look blurry. Consider ticking "AI quality enhancement".`
       : "";
     await remake(r);
     if (els.viewDialog.open) showInViewer(results.indexOf(r));
@@ -1156,9 +1156,9 @@
         await writable.write(r.blob);
         await writable.close();
       }
-      updateSummary(`נשמרו ${results.length} קבצים בתיקייה "${dir.name}"`);
+      updateSummary(`Saved ${results.length} ${results.length === 1 ? "file" : "files"} to the folder "${dir.name}"`);
     } catch {
-      alert("לא ניתן לשמור בתיקייה הזו. נסו תיקייה אחרת, או הורידו כ-ZIP.");
+      alert("Could not save to this folder. Try another folder, or download as ZIP.");
     } finally {
       els.folderSaveBtn.disabled = false;
     }

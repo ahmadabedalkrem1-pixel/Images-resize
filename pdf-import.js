@@ -102,7 +102,7 @@ window.PdfImport = (() => {
   // Show the page picker; resolves with { pages: [numbers], mode } or null when cancelled.
   function pickPages(doc, fileName) {
     const dialog = $("pdfDialog"), grid = $("pdfPages"), addBtn = $("pdfAdd");
-    $("pdfTitle").textContent = `בחירת עמודים מ-${fileName}`;
+    $("pdfTitle").textContent = `Choose pages from ${fileName}`;
     grid.innerHTML = "";
     const boxes = [];
     let cancelled = false;
@@ -115,7 +115,7 @@ window.PdfImport = (() => {
       const thumb = document.createElement("div");
       thumb.className = "pdf-thumb";
       const caption = document.createElement("span");
-      caption.textContent = `עמוד ${n}`;
+      caption.textContent = `Page ${n}`;
       tile.append(box, thumb, caption);
       grid.append(tile);
       boxes.push(box);
@@ -144,7 +144,7 @@ window.PdfImport = (() => {
       dialog.oncancel = () => finish(null);
       addBtn.onclick = () => {
         const pages = boxes.map((b, i) => (b.checked ? i + 1 : 0)).filter(Boolean);
-        if (!pages.length) { alert("יש לבחור לפחות עמוד אחד"); return; }
+        if (!pages.length) { alert("Please select at least one page"); return; }
         finish({ pages, mode: dialog.querySelector('input[name="pdfMode"]:checked').value });
       };
       dialog.showModal();
@@ -153,7 +153,7 @@ window.PdfImport = (() => {
 
   // Ask which pages to take from a PDF file; resolves with the resulting PNG files ([] if cancelled).
   async function choose(file, onStatus = () => {}) {
-    onStatus("פותח את ה-PDF…");
+    onStatus("Opening the PDF…");
     const pdfjs = await loadLib();
     // Closing the loading task (not the document) is what releases it in pdf.js.
     const task = pdfjs.getDocument({ data: await file.arrayBuffer() });
@@ -165,7 +165,7 @@ window.PdfImport = (() => {
       const base = file.name.replace(/\.pdf$/i, "");
       const files = [];
       for (const [i, n] of choice.pages.entries()) {
-        onStatus(`מחלץ מה-PDF… עמוד ${i + 1} מתוך ${choice.pages.length}`);
+        onStatus(`Extracting from the PDF… page ${i + 1} of ${choice.pages.length}`);
         const page = await doc.getPage(n);
         if (choice.mode === "page") {
           files.push(new File([await toBlob(await renderWholePage(page))], `${base}-p${n}.png`, { type: "image/png" }));
@@ -177,7 +177,7 @@ window.PdfImport = (() => {
           }
         }
       }
-      if (!files.length) alert('לא נמצאו תמונות בעמודים שנבחרו. אפשר לבחור "לשמור את העמוד כולו כתמונה".');
+      if (!files.length) alert('No pictures were found on the selected pages. You can choose "Save each whole page as an image" instead.');
       return files;
     } finally {
       task.destroy();
