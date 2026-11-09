@@ -10,7 +10,7 @@ window.AiEnhance = (() => {
     const s = document.createElement("script");
     s.src = src;
     s.onload = resolve;
-    s.onerror = () => reject(new Error("לא ניתן לטעון את רכיב ה-AI"));
+    s.onerror = () => reject(new Error("Could not load the AI component"));
     document.head.append(s);
   });
 

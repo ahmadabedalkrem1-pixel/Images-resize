@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <header class="hero">
     <div class="hero-text">
-      <h1>שינוי גודל תמונות</h1>
-      <p class="sub">הכל רץ בדפדפן — התמונות לא עולות לשום שרת</p>
+      <h1>Image Resizer</h1>
+      <p class="sub">Everything runs in your browser — your images are never uploaded to a server</p>
     </div>
     <!-- Layered waves drifting at different speeds; the front one matches the page colour. -->
     <svg class="waves" viewBox="0 24 150 28" preserveAspectRatio="none" aria-hidden="true">
@@ -33,13 +33,13 @@
         <span class="drop-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
         </span>
-        <strong>גררו תמונות או תיקייה לכאן</strong>
-        <span>או לחצו לבחירת קבצים (אפשר כמה ביחד). כולל קבצי פוטושופ (PSD) ו-PDF</span>
+        <strong>Drag images or a folder here</strong>
+        <span>or click to choose files (several at once). Photoshop (PSD) and PDF files work too</span>
       </label>
       <div class="upload-actions">
         <input type="file" id="folderInput" webkitdirectory multiple hidden>
-        <button type="button" id="folderBtn" class="secondary">בחירת תיקייה</button>
-        <button type="button" id="clearBtn" class="link" hidden>ניקוי הרשימה</button>
+        <button type="button" id="folderBtn" class="secondary">Choose folder</button>
+        <button type="button" id="clearBtn" class="link" hidden>Clear list</button>
       </div>
       <small id="uploadStatus" class="note" aria-live="polite"></small>
       <ul id="fileList" class="file-list"></ul>
@@ -47,53 +47,53 @@
 
     <section class="card settings">
       <div class="field">
-        <label for="preset">גודל</label>
+        <label for="preset">Size</label>
         <select id="preset"></select>
         <small id="presetNote" class="note" hidden></small>
-        <button type="button" id="deletePreset" class="link" hidden>מחיקת הגודל הזה מהרשימה</button>
+        <button type="button" id="deletePreset" class="link" hidden>Delete this size from the list</button>
       </div>
 
       <div class="field add-size" id="addSize" hidden>
-        <label>הוספת גודל חדש לרשימה</label>
-        <input type="text" id="newName" placeholder="שם, למשל Banner" maxlength="40">
+        <label>Add a new size to the list</label>
+        <input type="text" id="newName" placeholder="Name, e.g. Banner" maxlength="40">
         <div class="row">
-          <input type="number" id="newW" min="1" max="10000" placeholder="רוחב" dir="ltr">
+          <input type="number" id="newW" min="1" max="10000" placeholder="Width">
           <span>×</span>
-          <input type="number" id="newH" min="1" max="10000" placeholder="גובה" dir="ltr">
+          <input type="number" id="newH" min="1" max="10000" placeholder="Height">
           <span class="unit">px</span>
         </div>
-        <small class="note">הגודל נשמר בדפדפן שלכם ומסומן ב-★.</small>
-        <button type="button" id="saveSize" class="secondary">שמירה ברשימה</button>
+        <small class="note">The size is saved in your browser and marked with ★.</small>
+        <button type="button" id="saveSize" class="secondary">Save to list</button>
       </div>
 
       <div class="field custom-size" id="customSize" hidden>
-        <label>גודל מותאם (בפיקסלים)</label>
+        <label>Custom size (pixels)</label>
         <div class="row">
-          <input type="number" id="customW" min="1" max="10000" placeholder="רוחב" dir="ltr">
+          <input type="number" id="customW" min="1" max="10000" placeholder="Width">
           <span>×</span>
-          <input type="number" id="customH" min="1" max="10000" placeholder="גובה" dir="ltr">
+          <input type="number" id="customH" min="1" max="10000" placeholder="Height">
           <span class="unit">px</span>
         </div>
-        <label class="check"><input type="checkbox" id="keepRatio"> שמירת יחס (הגובה יחושב לפי התמונה)</label>
+        <label class="check"><input type="checkbox" id="keepRatio"> Keep proportions (height follows the image)</label>
       </div>
 
       <div class="field">
-        <label for="bgMode">רקע</label>
+        <label for="bgMode">Background</label>
         <div class="row">
           <select id="bgMode">
-            <option value="original" selected>רקע מקורי (בלי שינוי)</option>
-            <option value="white">רקע לבן</option>
-            <option value="transparent">רקע שקוף (PNG)</option>
-            <option value="custom">צבע אחר…</option>
+            <option value="original" selected>Original background (unchanged)</option>
+            <option value="white">White background</option>
+            <option value="transparent">Transparent background (PNG)</option>
+            <option value="custom">Other colour…</option>
           </select>
-          <input type="color" id="bg" value="#ffffff" title="בחירת צבע" hidden>
+          <input type="color" id="bg" value="#ffffff" title="Choose a colour" hidden>
         </div>
-        <small id="bgNote" class="note">בתמונת מוצר על רקע חלק, הרקע מוחלף אוטומטית והמוצר ממורכז.</small>
-        <small id="bgHint" class="hint" hidden>JPEG לא תומך בשקיפות, ולכן הרקע יהיה לבן. לשקיפות בחרו PNG או WebP.</small>
+        <small id="bgNote" class="note">For a product photo on a plain background, the background is replaced automatically and the product is centred.</small>
+        <small id="bgHint" class="hint" hidden>JPEG does not support transparency, so the background will be white. For transparency choose PNG or WebP.</small>
       </div>
 
       <div class="field">
-        <label for="format">סוג קובץ</label>
+        <label for="format">File type</label>
         <select id="format">
           <option value="image/jpeg">JPEG</option>
           <option value="image/png">PNG</option>
@@ -103,57 +103,57 @@
       </div>
 
       <div class="field" id="qualityField">
-        <label for="quality">איכות</label>
+        <label for="quality">Quality</label>
         <select id="quality">
-          <option value="0.6">נמוכה</option>
-          <option value="0.8">בינונית</option>
-          <option value="0.92" selected>גבוהה</option>
+          <option value="0.6">Low</option>
+          <option value="0.8">Medium</option>
+          <option value="0.92" selected>High</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="maxKB">גודל קובץ מקסימלי (KB) — לא חובה</label>
-        <input type="number" id="maxKB" min="1" placeholder="למשל 450" dir="ltr">
+        <label for="maxKB">Maximum file size (KB) — optional</label>
+        <input type="number" id="maxKB" min="1" placeholder="e.g. 450">
       </div>
 
       <div class="field ai-field">
-        <label class="check strong"><input type="checkbox" id="aiEnhance"> שיפור איכות עם AI</label>
-        <small class="note">ה-AI מצייר את התמונה מחדש: משחזר חדות ומנקה "קוביות" של JPEG. הכי מועיל לתמונות קטנות או באיכות נמוכה. בפעם הראשונה נטען רכיב של כ-4MB, וכל תמונה לוקחת כמה שניות.</small>
+        <label class="check strong"><input type="checkbox" id="aiEnhance"> AI quality enhancement</label>
+        <small class="note">The AI redraws the image: it restores sharpness and cleans up JPEG "blocks". Most useful for small or low-quality images. The first time, a component of about 4MB is loaded, and each image takes a few seconds.</small>
         <div id="aiProgress" class="ai-progress" hidden>
-          <div class="ai-progress-head"><span id="aiProgressLabel"></span><span id="aiProgressPct" dir="ltr">0%</span></div>
+          <div class="ai-progress-head"><span id="aiProgressLabel"></span><span id="aiProgressPct">0%</span></div>
           <div class="ai-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span id="aiProgressBar"></span></div>
         </div>
       </div>
 
       <details class="advanced">
-        <summary>הגדרות מתקדמות</summary>
+        <summary>Advanced settings</summary>
         <div class="field">
-          <label for="fit">מיקום התמונה בגודל החדש</label>
+          <label for="fit">Image placement in the new size</label>
           <select id="fit">
-            <option value="auto" selected>אוטומטי (מומלץ)</option>
-            <option value="cover">למלא את כל הגודל (חיתוך שוליים)</option>
-            <option value="contain">להכניס את כל התמונה (בלי חיתוך)</option>
-            <option value="stretch">מתיחה (עלול לעוות)</option>
+            <option value="auto" selected>Automatic (recommended)</option>
+            <option value="cover">Fill the whole size (trims the edges)</option>
+            <option value="contain">Fit the whole image (no cropping)</option>
+            <option value="stretch">Stretch (may distort)</option>
           </select>
           <small id="fitNote" class="note"></small>
         </div>
         <div class="field">
-          <label for="namePattern">שם הקבצים</label>
-          <input type="text" id="namePattern" dir="ltr" value="{name}_{size}_{w}x{h}" spellcheck="false">
-          <small class="note"><bdi>{name}</bdi> שם הקובץ המקורי · <bdi>{size}</bdi> שם הגודל · <bdi>{w}</bdi>/<bdi>{h}</bdi> רוחב/גובה · <bdi>{date}</bdi> תאריך</small>
-          <small class="note">לדוגמה: <bdi id="namePreview"></bdi></small>
+          <label for="namePattern">File names</label>
+          <input type="text" id="namePattern" value="{name}_{size}_{w}x{h}" spellcheck="false">
+          <small class="note"><bdi>{name}</bdi> original file name · <bdi>{size}</bdi> size name · <bdi>{w}</bdi>/<bdi>{h}</bdi> width/height · <bdi>{date}</bdi> date</small>
+          <small class="note">Example: <bdi id="namePreview"></bdi></small>
         </div>
       </details>
 
-      <button id="processBtn" class="primary" disabled>שינוי גודל</button>
+      <button id="processBtn" class="primary" disabled>Resize</button>
     </section>
 
     <section class="card" id="resultsCard" hidden>
       <div class="results-head">
-        <h2>תוצאות</h2>
+        <h2>Results</h2>
         <div class="results-actions">
-          <button type="button" id="folderSaveBtn" class="secondary" hidden>שמירה לתיקייה…</button>
-          <button type="button" id="zipBtn" class="primary">הורדת הכל כ-ZIP</button>
+          <button type="button" id="folderSaveBtn" class="secondary" hidden>Save to folder…</button>
+          <button type="button" id="zipBtn" class="primary">Download all as ZIP</button>
         </div>
       </div>
       <div id="resultsSummary" class="results-summary" aria-live="polite"></div>
@@ -161,24 +161,24 @@
     </section>
   </main>
 
-  <footer class="site-footer" dir="ltr">© <span id="year">2026</span> Ahmad &amp; Nofar</footer>
+  <footer class="site-footer">© <span id="year">2026</span> Ahmad &amp; Nofar</footer>
 
   <!-- Choose pages from a PDF -->
   <dialog id="pdfDialog" class="modal">
     <div class="modal-body">
-      <h2 id="pdfTitle">בחירת עמודים מה-PDF</h2>
+      <h2 id="pdfTitle">Choose pages from the PDF</h2>
       <div class="modal-tools">
-        <button type="button" id="pdfAll" class="link">בחירת כל העמודים</button>
-        <button type="button" id="pdfNone" class="link">ניקוי הבחירה</button>
+        <button type="button" id="pdfAll" class="link">Select all pages</button>
+        <button type="button" id="pdfNone" class="link">Clear selection</button>
       </div>
       <div id="pdfPages" class="pdf-pages"></div>
       <div class="pdf-mode">
-        <label class="check"><input type="radio" name="pdfMode" value="images" checked> לחלץ את התמונות שבתוך העמודים (באיכות המקורית)</label>
-        <label class="check"><input type="radio" name="pdfMode" value="page"> לשמור את העמוד כולו כתמונה</label>
+        <label class="check"><input type="radio" name="pdfMode" value="images" checked> Extract the pictures inside the pages (original quality)</label>
+        <label class="check"><input type="radio" name="pdfMode" value="page"> Save each whole page as an image</label>
       </div>
       <div class="modal-actions">
-        <button type="button" id="pdfAdd" class="primary">הוספה</button>
-        <button type="button" id="pdfCancel" class="secondary">ביטול</button>
+        <button type="button" id="pdfAdd" class="primary">Add</button>
+        <button type="button" id="pdfCancel" class="secondary">Cancel</button>
       </div>
     </div>
   </dialog>
@@ -186,31 +186,31 @@
   <!-- Crop one image -->
   <dialog id="cropDialog" class="modal modal-wide">
     <div class="modal-body">
-      <h2>חיתוך התמונה</h2>
+      <h2>Crop the image</h2>
       <div class="modal-tools">
-        <label for="cropRatio">יחס</label>
+        <label for="cropRatio">Ratio</label>
         <select id="cropRatio">
-          <option value="free">חופשי</option>
-          <option value="preset">לפי הגודל שנבחר</option>
-          <option value="1">1:1 (ריבוע)</option>
+          <option value="free">Free</option>
+          <option value="preset">Chosen size</option>
+          <option value="1">1:1 (square)</option>
           <option value="1.3333">4:3</option>
           <option value="1.7778">16:9</option>
           <option value="0.75">3:4</option>
         </select>
-        <span id="cropSize" class="note" dir="ltr"></span>
+        <span id="cropSize" class="note"></span>
       </div>
       <div id="cropRotate" class="modal-tools">
-        <button type="button" id="cropLeft" class="secondary" title="סיבוב שמאלה">↺ 90°</button>
-        <button type="button" id="cropRight" class="secondary" title="סיבוב ימינה">↻ 90°</button>
-        <label for="cropStraighten">יישור</label>
+        <button type="button" id="cropLeft" class="secondary" title="Rotate left">↺ 90°</button>
+        <button type="button" id="cropRight" class="secondary" title="Rotate right">↻ 90°</button>
+        <label for="cropStraighten">Straighten</label>
         <input type="range" id="cropStraighten" min="-15" max="15" step="0.5" value="0">
-        <span id="cropAngle" dir="ltr">0°</span>
+        <span id="cropAngle">0°</span>
       </div>
-      <div class="crop-area" dir="ltr"><img id="cropImg" alt=""></div>
+      <div class="crop-area"><img id="cropImg" alt=""></div>
       <div class="modal-actions">
-        <button type="button" id="cropSave" class="primary">שמירת החיתוך</button>
-        <button type="button" id="cropReset" class="secondary">בלי חיתוך</button>
-        <button type="button" id="cropCancel" class="link">ביטול</button>
+        <button type="button" id="cropSave" class="primary">Save crop</button>
+        <button type="button" id="cropReset" class="secondary">No crop</button>
+        <button type="button" id="cropCancel" class="link">Cancel</button>
       </div>
     </div>
   </dialog>
@@ -219,27 +219,27 @@
   <dialog id="viewDialog" class="modal modal-wide">
     <div class="modal-body">
       <div class="view-head">
-        <h2 id="viewTitle" dir="ltr"></h2>
+        <h2 id="viewTitle"></h2>
         <span id="viewMeta" class="note"></span>
       </div>
       <div class="side-by-side" id="compareWrap">
         <figure>
-          <figcaption>לפני</figcaption>
-          <div class="pane"><img id="viewBefore" alt="לפני"></div>
+          <figcaption>Before</figcaption>
+          <div class="pane"><img id="viewBefore" alt="Before"></div>
         </figure>
         <figure>
-          <figcaption>אחרי</figcaption>
-          <div class="pane"><img id="viewAfter" alt="אחרי"></div>
+          <figcaption>After</figcaption>
+          <div class="pane"><img id="viewAfter" alt="After"></div>
         </figure>
       </div>
       <div class="modal-actions">
-        <a id="viewDownload" class="primary button-link" download>הורדה</a>
-        <button type="button" id="viewCrop" class="secondary">✂ התאמת החיתוך לגודל הזה</button>
-        <label class="check"><input type="checkbox" id="viewActual"> גודל אמיתי (100%)</label>
+        <a id="viewDownload" class="primary button-link" download>Download</a>
+        <button type="button" id="viewCrop" class="secondary">✂ Adjust the crop for this size</button>
+        <label class="check"><input type="checkbox" id="viewActual"> Actual size (100%)</label>
         <span class="spacer"></span>
-        <button type="button" id="viewPrev" class="link">→ הקודם</button>
-        <button type="button" id="viewNext" class="link">הבא ←</button>
-        <button type="button" id="viewClose" class="link">סגירה</button>
+        <button type="button" id="viewPrev" class="link">← Previous</button>
+        <button type="button" id="viewNext" class="link">Next →</button>
+        <button type="button" id="viewClose" class="link">Close</button>
       </div>
     </div>
   </dialog>
@@ -247,10 +247,10 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=17"></script>
-  <script src="pdf-import.js?v=17"></script>
-  <script src="crop.js?v=17"></script>
-  <script src="ai-enhance.js?v=17"></script>
-  <script src="app.js?v=17"></script>
+  <script src="presets.js?v=18"></script>
+  <script src="pdf-import.js?v=18"></script>
+  <script src="crop.js?v=18"></script>
+  <script src="ai-enhance.js?v=18"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

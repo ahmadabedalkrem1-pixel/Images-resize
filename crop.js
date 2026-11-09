@@ -13,7 +13,7 @@ window.CropTool = (() => {
       const s = document.createElement("script");
       s.src = "vendor/cropper/cropper.min.js";
       s.onload = () => resolve(window.Cropper);
-      s.onerror = () => { lib = null; reject(new Error("לא ניתן לטעון את כלי החיתוך")); };
+      s.onerror = () => { lib = null; reject(new Error("Could not load the crop tool")); };
       document.head.append(s);
     });
     return lib;
