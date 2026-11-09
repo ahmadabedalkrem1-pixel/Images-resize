@@ -254,6 +254,15 @@
 
   // Manual crops (with rotation), per file, in the file's own pixels.
   const crops = new Map();
+  // Images with objects removed, per file (ImageBitmap at the file's own size). Used in place of the
+  // file everywhere, so crops and all sizes include the removal.
+  const erased = new Map();
+  const isEdited = (f) => crops.has(f) || erased.has(f);
+  function forgetEdits(f) {
+    crops.delete(f);
+    erased.get(f)?.close();
+    erased.delete(f);
+  }
 
   // Width/height of the size chosen now, to offer it as the crop shape.
   function chosenRatio() {
@@ -281,6 +290,67 @@
     else crops.delete(file);
     renderFileList();
   }
+
+  async function eraseFile(file) {
+    let original;
+    try {
+      original = await decodeOriginal(file);
+    } catch {
+      alert(`Could not read the file "${file.name}"`);
+      return;
+    }
+    const current = erased.get(file) || original;
+    const result = await EraseTool.open(current, original);
+    original.close();
+    if (result === undefined) return;
+    erased.get(file)?.close();
+    if (result) erased.set(file, await createImageBitmap(result));
+    else erased.delete(file);
+    renderFileList();
+  }
+
+  // ---------- Edit menu of an uploaded image ----------
+
+  const editMenu = $("editMenu");
+  let menuFile = null, menuButton = null;
+  function closeEditMenu() {
+    editMenu.hidden = true;
+    menuFile = menuButton = null;
+  }
+  // Keep the menu next to its button (also while the page scrolls).
+  function placeEditMenu() {
+    if (editMenu.hidden) return;
+    if (!menuButton?.isConnected) { closeEditMenu(); return; }
+    const r = menuButton.getBoundingClientRect();
+    const m = editMenu.getBoundingClientRect();
+    editMenu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.width - 8))}px`;
+    editMenu.style.top = `${r.bottom + 6 + m.height > innerHeight && r.top - m.height - 6 > 0 ? r.top - m.height - 6 : r.bottom + 6}px`;
+  }
+  function openEditMenu(button, file) {
+    if (menuFile === file && !editMenu.hidden) { closeEditMenu(); return; }
+    menuFile = file;
+    menuButton = button;
+    editMenu.querySelector('[data-action="reset"]').hidden = !isEdited(file);
+    editMenu.style.left = editMenu.style.top = "0px";
+    editMenu.hidden = false;
+    placeEditMenu();
+    editMenu.querySelector("button").focus({ preventScroll: true });
+  }
+  editMenu.addEventListener("click", (e) => {
+    const action = e.target.closest("button")?.dataset.action;
+    const file = menuFile;
+    if (!action || !file) return;
+    closeEditMenu();
+    if (action === "crop") cropFile(file);
+    else if (action === "erase") eraseFile(file);
+    else if (action === "reset" && confirm(`Undo all edits of "${file.name}"?`)) { forgetEdits(file); renderFileList(); }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!editMenu.hidden && !editMenu.contains(e.target) && !e.target.closest(".edit-btn")) closeEditMenu();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !editMenu.hidden) closeEditMenu(); });
+  addEventListener("resize", placeEditMenu);
+  addEventListener("scroll", placeEditMenu, true);
 
   // Everything dropped, including the images inside dropped folders (and their sub-folders).
   async function droppedFiles(dataTransfer) {
@@ -354,8 +424,15 @@
     return true;
   }
 
-  function decodeImage(file) {
+  // The image as uploaded.
+  function decodeOriginal(file) {
     return isPsd(file) ? decodePsd(file) : createImageBitmap(file);
+  }
+
+  // The image to work with: as uploaded, or with objects removed.
+  function decodeImage(file) {
+    const e = erased.get(file);
+    return e ? createImageBitmap(e) : decodeOriginal(file);
   }
 
   function renderFileList() {
@@ -363,18 +440,19 @@
     files.forEach((f, i) => {
       const li = document.createElement("li");
       li.textContent = f.name;
-      const crop = document.createElement("button");
-      crop.type = "button";
-      crop.className = crops.has(f) ? "crop-btn cropped" : "crop-btn";
-      crop.textContent = crops.has(f) ? "✂ Edited" : "✂";
-      crop.title = "Crop, rotate and straighten";
-      crop.onclick = () => cropFile(f);
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = isEdited(f) ? "edit-btn edited" : "edit-btn";
+      edit.textContent = isEdited(f) ? "✎ Edited" : "✎ Edit";
+      edit.title = "Crop, rotate, or remove objects";
+      edit.setAttribute("aria-haspopup", "menu");
+      edit.onclick = () => openEditMenu(edit, f);
       const rm = document.createElement("button");
       rm.type = "button";
       rm.textContent = "×";
-      rm.title = "Remove";
-      rm.onclick = () => { crops.delete(f); files.splice(i, 1); renderFileList(); };
-      li.append(crop, rm);
+      rm.title = "Remove from the list";
+      rm.onclick = () => { forgetEdits(f); files.splice(i, 1); renderFileList(); };
+      li.append(edit, rm);
       els.fileList.append(li);
     });
     els.processBtn.disabled = files.length === 0;
@@ -942,6 +1020,7 @@
             ...out, ...job, file: index,
             name: `${name}.${EXT[s.type]}`, label: t.name, width: t.width, height: t.height,
             limit: s.maxBytes, chosenQuality: s.quality,
+            erasedNote: erased.has(file) ? "Objects removed" : "",
             aiNote: prep.aiNote, placeNote, fixedNote: s.fixed && `Fixed settings for the size: ${s.fixed}`,
             warning: blurry
               ? `The original image is small for this size (enlarged ${enlargement.toFixed(1)}×) and may look blurry. Consider ticking "AI quality enhancement".`
@@ -1019,7 +1098,7 @@
     div.querySelector("img").src = r.url;
     div.querySelector(".name").textContent = r.name;
     const info = div.querySelector(".info");
-    info.textContent = [r.aiNote, r.manualCrop ? "Crop adjusted manually" : r.placeNote, r.fixedNote].filter(Boolean).join(". ");
+    info.textContent = [r.erasedNote, r.aiNote, r.manualCrop ? "Crop adjusted manually" : r.placeNote, r.fixedNote].filter(Boolean).join(". ");
     info.hidden = !info.textContent;
     const warning = div.querySelector(".quality-warning");
     warning.textContent = r.warning ? `⚠ ${r.warning}` : "";
@@ -1185,7 +1264,7 @@
   els.dropzone.addEventListener("drop", async (ev) => addFiles(await droppedFiles(ev.dataTransfer)));
   els.folderBtn.addEventListener("click", () => els.folderInput.click());
   els.folderInput.addEventListener("change", () => { addFiles(els.folderInput.files); els.folderInput.value = ""; });
-  els.clearBtn.addEventListener("click", () => { files = []; crops.clear(); renderFileList(); });
+  els.clearBtn.addEventListener("click", () => { files.forEach(forgetEdits); files = []; renderFileList(); });
   els.saveSize.addEventListener("click", addUserPreset);
   els.deletePreset.addEventListener("click", deleteUserPreset);
   // Allow pasting an image from the clipboard (e.g. a screenshot).
