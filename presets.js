@@ -14,5 +14,6 @@ window.PRESETS = [
   { name: "Solution Image",        width: 500, height: 610 },
   { name: "Carousel",              width: 380, height: 260 },
   { name: "Product Image",         width: 350, height: 350 },
+  { name: "Banner", width: 400, height: 400 },
 ];
 
