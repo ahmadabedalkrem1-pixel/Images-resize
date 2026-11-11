@@ -16,7 +16,6 @@
   --focus: rgba(11, 92, 173, .15);
   --ok: #1a7f37;
   --warn: #b54708;
-  --shadow: 0 2px 6px rgba(2, 16, 40, .18), 0 14px 36px rgba(2, 16, 40, .32);
 }
 
 * { box-sizing: border-box; }
@@ -34,7 +33,9 @@ body {
    assets/background.jpg (and assets/bermad-logo.png for the logo). */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1;
-  background: url("assets/background.jpg") center / cover no-repeat;
+  background:
+    linear-gradient(rgba(3, 16, 40, .22), rgba(3, 16, 40, .22)),
+    url("assets/background.jpg") center / cover no-repeat;
 }
 
 /* Same width and side padding as the cards below, so the logo lines up with them. */
@@ -69,42 +70,54 @@ main {
   .hero-title { border-left: 0; padding-left: 0; }
 }
 
-/* The cards are dark glass over the background picture: half see-through, with the picture blurred
-   behind them, and light text. Pop-up windows (crop, remove objects, PDF) keep the light colours
-   above, so images are judged on a neutral background. */
+/* The picture shows through the whole page: the cards have no fill, only a thin outline. What must
+   be read or clicked gets its own small piece of dark glass (fields, buttons, file names, result
+   tiles), and text that sits straight on the picture has a soft dark shadow. Pop-up windows (crop,
+   remove objects, PDF) keep the light colours above, so images are judged on a neutral background. */
 main {
-  --card: rgba(6, 30, 62, .44);
-  --text: #f5f9ff;
-  --muted: rgba(226, 238, 255, .86);
-  --border: rgba(255, 255, 255, .24);
-  --accent: #9bd4ff;
-  --accent-soft: rgba(140, 200, 255, .16);
+  --glass: rgba(4, 22, 50, .62);
+  --card: transparent;
+  --text: #ffffff;
+  --muted: rgba(238, 245, 255, .96);
+  --border: rgba(255, 255, 255, .42);
+  --accent: #b4e0ff;
+  --accent-soft: var(--glass);
   --primary: #1672d0;
   --primary-strong: #1265ba;
-  --field: rgba(255, 255, 255, .1);
-  --drop: rgba(255, 255, 255, .06);
-  --drop-border: rgba(255, 255, 255, .42);
-  --ai: linear-gradient(135deg, rgba(120, 190, 255, .18), rgba(165, 140, 255, .18));
-  --track: rgba(255, 255, 255, .2);
-  --focus: rgba(155, 212, 255, .35);
-  --ok: #7ee2a8;
-  --warn: #ffc670;
+  --field: var(--glass);
+  --drop: rgba(4, 22, 50, .16);
+  --drop-border: rgba(255, 255, 255, .6);
+  --ai: linear-gradient(135deg, rgba(6, 34, 78, .66), rgba(38, 30, 96, .62));
+  --track: rgba(255, 255, 255, .25);
+  --focus: rgba(180, 224, 255, .4);
+  --ok: #8df0b4;
+  --warn: #ffd083;
   color: var(--text);
+  text-shadow: 0 1px 2px rgba(2, 12, 30, .95), 0 0 10px rgba(2, 12, 30, .8);
 }
-/* Without blur support the picture would show through sharply, so the glass is made darker. */
+/* Without blur support the glass is made darker, so text on it stays readable. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  main { --card: rgba(6, 30, 62, .86); }
+  main { --glass: rgba(4, 22, 50, .84); }
 }
 
 .card {
   background: var(--card);
-  border: 1px solid rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .22);
   border-radius: 16px;
-  box-shadow: var(--shadow);
   padding: 20px;
-  -webkit-backdrop-filter: blur(16px) saturate(1.25);
-  backdrop-filter: blur(16px) saturate(1.25);
 }
+
+/* The small pieces of glass. */
+main select, main input[type=number], main input[type=text],
+main button.secondary, main .file-list li, main .add-size, main .ai-field {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+main button.secondary { color: #fff; border-color: rgba(255, 255, 255, .6); }
+main button.secondary:hover { background: rgba(10, 44, 92, .78); border-color: #fff; }
+main button.primary { border: 1px solid rgba(255, 255, 255, .35); box-shadow: 0 6px 18px rgba(2, 12, 30, .5); }
+main button.primary:disabled { opacity: .6; }
+main .file-list li, main .add-size, main .ai-field { border: 1px solid rgba(255, 255, 255, .3); }
 
 /* ---------- Upload ---------- */
 
@@ -160,7 +173,7 @@ select, input[type=number], input[type=text] {
 select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
 /* On the glass cards: dark-style arrows, spinners, tick boxes and drop-down lists. */
 main select, main input { color-scheme: dark; }
-main input::placeholder { color: rgba(226, 238, 255, .6); }
+main input::placeholder { color: rgba(238, 245, 255, .7); }
 main option, main optgroup { background: #0c2f57; color: #f5f9ff; }
 main input[type=checkbox] { accent-color: var(--primary); }
 input[type=color] { width: 60px; height: 40px; border: 1px solid var(--border); border-radius: 10px; padding: 2px; }
@@ -202,8 +215,8 @@ button[hidden] { display: none; }
 .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
 
 .result {
-  border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, .08);
-  border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; background: rgba(4, 22, 50, .74);
+  border: 1px solid rgba(255, 255, 255, .3);
   display: flex; flex-direction: column;
 }
 .result .thumb {
