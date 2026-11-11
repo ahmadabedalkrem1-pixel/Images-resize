@@ -73,7 +73,7 @@ main {
    behind them, and light text. Pop-up windows (crop, remove objects, PDF) keep the light colours
    above, so images are judged on a neutral background. */
 main {
-  --card: rgba(6, 30, 62, .46);
+  --card: rgba(6, 30, 62, .44);
   --text: #f5f9ff;
   --muted: rgba(226, 238, 255, .86);
   --border: rgba(255, 255, 255, .24);
