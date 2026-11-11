@@ -5,26 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b5cad'/%3E%3Cpath d='M10 22 22 10M15 10h7v7M17 22h-7v-7' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <header class="hero">
     <div class="hero-text">
-      <h1>Image Resizer</h1>
-      <p class="sub">Everything runs in your browser — your images are never uploaded to a server</p>
+      <img class="logo" src="assets/bermad-logo.png" alt="BERMAD" width="336" height="90">
+      <div class="hero-title">
+        <h1>Image Resizer</h1>
+        <p class="sub">Everything runs in your browser — your images are never uploaded to a server</p>
+      </div>
     </div>
-    <!-- Layered waves drifting at different speeds; the front one matches the page colour. -->
-    <svg class="waves" viewBox="0 24 150 28" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <path id="wave" d="M-160 44c30 0 58-18 88-18s58 18 88 18 58-18 88-18 58 18 88 18v44h-352z"/>
-      </defs>
-      <g class="wave-layers">
-        <use href="#wave" x="48" y="0"/>
-        <use href="#wave" x="48" y="3"/>
-        <use href="#wave" x="48" y="5"/>
-        <use href="#wave" x="48" y="7"/>
-      </g>
-    </svg>
   </header>
 
   <main>
@@ -291,12 +282,12 @@
   <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=19"></script>
-  <script src="pdf-import.js?v=19"></script>
-  <script src="crop.js?v=19"></script>
-  <script src="inpaint.js?v=19"></script>
-  <script src="erase.js?v=19"></script>
-  <script src="ai-enhance.js?v=19"></script>
-  <script src="app.js?v=19"></script>
+  <script src="presets.js?v=20"></script>
+  <script src="pdf-import.js?v=20"></script>
+  <script src="crop.js?v=20"></script>
+  <script src="inpaint.js?v=20"></script>
+  <script src="erase.js?v=20"></script>
+  <script src="ai-enhance.js?v=20"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
