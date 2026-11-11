@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Image Resizer</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b5cad'/%3E%3Cpath d='M10 22 22 10M15 10h7v7M17 22h-7v-7' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <header class="hero">
@@ -279,15 +279,23 @@
     </div>
   </dialog>
 
-  <!-- ?v= forces browsers to load the new files after an update. On every change, bump it here and in version.txt. -->
+  <!-- ?v= forces browsers to load the new files after an update. On every change to the code, bump it here and in version.txt. -->
   <script src="vendor/jszip.min.js"></script>
   <script src="vendor/pica.min.js"></script>
-  <script src="presets.js?v=22"></script>
-  <script src="pdf-import.js?v=22"></script>
-  <script src="crop.js?v=22"></script>
-  <script src="inpaint.js?v=22"></script>
-  <script src="erase.js?v=22"></script>
-  <script src="ai-enhance.js?v=22"></script>
-  <script src="app.js?v=22"></script>
+  <!-- The size list is the exception: it is always loaded fresh, so a size added to presets.js shows
+       up the next time the page is opened, with no version bump. -->
+  <script>document.write('<script src="presets.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+    if (!Array.isArray(window.PRESETS)) {
+      window.PRESETS = [];
+      alert("The size list (presets.js) has a mistake, so the ready-made sizes are missing.\n\nCheck the last change to that file: every size needs its quotes, commas and curly brackets, like the lines above it.");
+    }
+  </script>
+  <script src="pdf-import.js?v=23"></script>
+  <script src="crop.js?v=23"></script>
+  <script src="inpaint.js?v=23"></script>
+  <script src="erase.js?v=23"></script>
+  <script src="ai-enhance.js?v=23"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
