@@ -1,17 +1,22 @@
 :root {
-  --bg: #f5f7fb;
+  --bg: #062a4f;   /* shown until the background picture loads */
   --card: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
   --border: #e2e8f0;
-  --accent: #0b5cad;
-  --accent-strong: #094a8c;
+  --accent: #0b5cad;        /* links, highlights */
   --accent-soft: #eaf2fb;
-  --hero-from: #0b5cad;
-  --hero-to: #0e7490;
+  --primary: #0b5cad;       /* main buttons */
+  --primary-strong: #094a8c;
+  --field: #ffffff;         /* inputs and selects */
+  --drop: linear-gradient(180deg, #fbfdff, #f2f7fd);
+  --drop-border: #bfd3ea;
+  --ai: linear-gradient(135deg, #eef6ff, #f3f0ff);
+  --track: #dfe6f3;
+  --focus: rgba(11, 92, 173, .15);
   --ok: #1a7f37;
   --warn: #b54708;
-  --shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .06);
+  --shadow: 0 2px 6px rgba(2, 16, 40, .18), 0 14px 36px rgba(2, 16, 40, .32);
 }
 
 * { box-sizing: border-box; }
@@ -23,33 +28,22 @@ body {
   color: var(--text);
 }
 
-/* ---------- Header with moving water ---------- */
+/* ---------- Page background and header ---------- */
 
-.hero {
-  position: relative;
-  background: linear-gradient(135deg, var(--hero-from) 0%, var(--hero-to) 100%);
-  color: #fff;
-  padding: 32px 32px 0;
-  overflow: hidden;
+/* The picture stays in place behind everything while the page scrolls. To change it, replace
+   assets/background.jpg (and assets/bermad-logo.png for the logo). */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1;
+  background: url("assets/background.jpg") center / cover no-repeat;
 }
-.hero-text { max-width: 1240px; margin: 0 auto; }
-.hero h1 { margin: 0; font-size: 1.8rem; }
-.hero .sub { margin: 6px 0 0; color: rgba(255, 255, 255, .85); font-size: .95rem; }
 
-/* Full-bleed: cancel the header's side padding so the water reaches both edges. */
-.waves { display: block; width: calc(100% + 64px); height: 90px; margin: 16px -32px 0; }
-.wave-layers > use { animation: wave-drift 25s cubic-bezier(.55, .5, .45, .5) infinite; }
-.wave-layers > use:nth-child(1) { fill: rgba(255, 255, 255, .45); animation-delay: -2s; animation-duration: 7s; }
-.wave-layers > use:nth-child(2) { fill: rgba(255, 255, 255, .3); animation-delay: -3s; animation-duration: 10s; }
-.wave-layers > use:nth-child(3) { fill: rgba(255, 255, 255, .18); animation-delay: -4s; animation-duration: 13s; }
-.wave-layers > use:nth-child(4) { fill: var(--bg); animation-delay: -5s; animation-duration: 20s; }
-@keyframes wave-drift {
-  0% { transform: translate3d(-90px, 0, 0); }
-  100% { transform: translate3d(85px, 0, 0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wave-layers > use { animation: none; }
-}
+/* Same width and side padding as the cards below, so the logo lines up with them. */
+.hero { color: #fff; padding: 28px 24px 20px; }
+.hero-text { max-width: 1192px; margin: 0 auto; display: flex; align-items: center; gap: 22px; }
+.logo { display: block; height: 54px; width: auto; flex: none; }
+.hero-title { min-width: 0; border-left: 1px solid rgba(255, 255, 255, .45); padding-left: 22px; }
+.hero h1 { margin: 0; font-size: 1.8rem; text-shadow: 0 1px 10px rgba(2, 16, 40, .55); }
+.hero .sub { margin: 6px 0 0; color: rgba(255, 255, 255, .9); font-size: .95rem; text-shadow: 0 1px 8px rgba(2, 16, 40, .6); }
 
 /* ---------- Layout: work area + settings panel ---------- */
 
@@ -66,16 +60,50 @@ main {
 @media (max-width: 900px) {
   main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "upload" "settings" "results"; padding: 8px 16px 24px; }
   .settings { position: static; }
-  .hero { padding: 24px 16px 0; }
+  .hero { padding: 20px 16px 14px; }
   .hero h1 { font-size: 1.5rem; }
-  .waves { height: 56px; width: calc(100% + 32px); margin: 12px -16px 0; }
+  .logo { height: 44px; }
+}
+@media (max-width: 600px) {
+  .hero-text { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .hero-title { border-left: 0; padding-left: 0; }
+}
+
+/* The cards are dark glass over the background picture: half see-through, with the picture blurred
+   behind them, and light text. Pop-up windows (crop, remove objects, PDF) keep the light colours
+   above, so images are judged on a neutral background. */
+main {
+  --card: rgba(6, 30, 62, .44);
+  --text: #f5f9ff;
+  --muted: rgba(226, 238, 255, .86);
+  --border: rgba(255, 255, 255, .24);
+  --accent: #9bd4ff;
+  --accent-soft: rgba(140, 200, 255, .16);
+  --primary: #1672d0;
+  --primary-strong: #1265ba;
+  --field: rgba(255, 255, 255, .1);
+  --drop: rgba(255, 255, 255, .06);
+  --drop-border: rgba(255, 255, 255, .42);
+  --ai: linear-gradient(135deg, rgba(120, 190, 255, .18), rgba(165, 140, 255, .18));
+  --track: rgba(255, 255, 255, .2);
+  --focus: rgba(155, 212, 255, .35);
+  --ok: #7ee2a8;
+  --warn: #ffc670;
+  color: var(--text);
+}
+/* Without blur support the picture would show through sharply, so the glass is made darker. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  main { --card: rgba(6, 30, 62, .86); }
 }
 
 .card {
   background: var(--card);
+  border: 1px solid rgba(255, 255, 255, .2);
   border-radius: 16px;
   box-shadow: var(--shadow);
   padding: 20px;
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  backdrop-filter: blur(16px) saturate(1.25);
 }
 
 /* ---------- Upload ---------- */
@@ -83,9 +111,9 @@ main {
 .dropzone {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 56px 16px;
-  border: 2px dashed #bfd3ea;
+  border: 2px dashed var(--drop-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, #fbfdff, #f2f7fd);
+  background: var(--drop);
   cursor: pointer;
   text-align: center;
   color: var(--muted);
@@ -95,12 +123,13 @@ main {
 .dropzone.over, .dropzone:hover { background: var(--accent-soft); border-color: var(--accent); }
 .drop-icon {
   width: 56px; height: 56px; border-radius: 50%; margin-bottom: 8px;
-  background: var(--accent); color: #fff;
+  background: var(--primary); color: #fff;
   display: grid; place-items: center;
   box-shadow: 0 6px 16px rgba(11, 92, 173, .3);
 }
 
 .upload-actions { display: flex; gap: 16px; align-items: center; margin-top: 12px; }
+.upload-actions .link { align-self: center; }
 
 .file-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .file-list li {
@@ -124,10 +153,16 @@ main {
 
 select, input[type=number], input[type=text] {
   min-width: 0; max-width: 100%;
-  font: inherit; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: #fff;
+  font: inherit; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--field); color: var(--text);
   transition: border-color .15s, box-shadow .15s;
 }
-select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11, 92, 173, .15); }
+select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+/* On the glass cards: dark-style arrows, spinners, tick boxes and drop-down lists. */
+main select, main input { color-scheme: dark; }
+main input::placeholder { color: rgba(226, 238, 255, .6); }
+main option, main optgroup { background: #0c2f57; color: #f5f9ff; }
+main input[type=checkbox] { accent-color: var(--primary); }
 input[type=color] { width: 60px; height: 40px; border: 1px solid var(--border); border-radius: 10px; padding: 2px; }
 
 .add-size { background: var(--accent-soft); border-radius: 12px; padding: 12px; }
@@ -140,12 +175,12 @@ input[type=color] { width: 60px; height: 40px; border: 1px solid var(--border); 
 
 button.primary {
   font: inherit; font-weight: 600;
-  background: var(--accent); color: #fff;
+  background: var(--primary); color: #fff;
   border: 0; border-radius: 10px; padding: 12px 18px; cursor: pointer;
   box-shadow: 0 6px 16px rgba(11, 92, 173, .28);
   transition: background .15s, transform .05s;
 }
-button.primary:hover { background: var(--accent-strong); }
+button.primary:hover { background: var(--primary-strong); }
 button.primary:active { transform: translateY(1px); }
 button.primary:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
 
@@ -167,8 +202,8 @@ button[hidden] { display: none; }
 .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
 
 .result {
-  border-radius: 12px; overflow: hidden; background: var(--card);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
+  border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, .08);
+  border: 1px solid var(--border);
   display: flex; flex-direction: column;
 }
 .result .thumb {
@@ -187,7 +222,8 @@ button[hidden] { display: none; }
 /* ---------- Footer ---------- */
 
 .site-footer {
-  text-align: center; color: var(--muted); font-size: .82rem;
+  text-align: center; color: rgba(255, 255, 255, .85); font-size: .82rem;
+  text-shadow: 0 1px 6px rgba(2, 16, 40, .6);
   padding: 8px 16px 28px;
 }
 
@@ -195,11 +231,11 @@ button[hidden] { display: none; }
 
 .unit { color: var(--muted); font-size: .85rem; }
 .check.strong { font-weight: 600 !important; font-size: .95rem; }
-.ai-field { background: linear-gradient(135deg, #eef6ff, #f3f0ff); border-radius: 12px; padding: 12px; }
+.ai-field { background: var(--ai); border-radius: 12px; padding: 12px; }
 .ai-progress { display: grid; gap: 6px; margin-top: 4px; }
 .ai-progress[hidden] { display: none; }
 .ai-progress-head { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 600; }
-.ai-progress-track { height: 10px; border-radius: 999px; background: #dfe6f3; overflow: hidden; }
+.ai-progress-track { height: 10px; border-radius: 999px; background: var(--track); overflow: hidden; }
 .ai-progress-track > span {
   display: block; height: 100%; width: 0; border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), #7c5cff);
@@ -207,7 +243,7 @@ button[hidden] { display: none; }
 }
 .ai-progress.done .ai-progress-track > span { background: var(--ok); }
 .file-list .edit-btn { color: var(--accent); font-size: .85rem; font-weight: 600; }
-.file-list .edit-btn.edited { color: #fff; background: var(--accent); border-radius: 999px; padding: 1px 8px; }
+.file-list .edit-btn.edited { color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 8px; }
 #uploadStatus:empty { display: none; }
 #uploadStatus { display: block; margin-top: 8px; }
 
@@ -279,10 +315,10 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 #cropRotate[hidden] { display: none; }
 #cropRotate input[type=range] { width: 180px; }
 a.button-link.primary {
-  background: var(--accent); color: #fff; font-weight: 600; border-radius: 10px; padding: 12px 18px;
+  background: var(--primary); color: #fff; font-weight: 600; border-radius: 10px; padding: 12px 18px;
   box-shadow: 0 6px 16px rgba(11, 92, 173, .28);
 }
-a.button-link.primary:hover { background: var(--accent-strong); }
+a.button-link.primary:hover { background: var(--primary-strong); }
 
 /* ---------- Edit menu of an uploaded image ---------- */
 
