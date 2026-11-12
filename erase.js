@@ -1,19 +1,26 @@
-// "Remove objects" window: paint over something and, when the mouse is released, the AI fills that
-// area from what is around it (like Photoshop's Remove tool). Every removal can be undone.
+// "Remove" tool: paint over something and, when the mouse is released, the AI fills that area from
+// what is around it (like Photoshop's Remove tool). Every removal can be undone. The window around it
+// (tabs, Save, Cancel) is in editor.js.
 window.EraseTool = (() => {
   const $ = (id) => document.getElementById(id);
   const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8];   // relative to "whole image fits the window"
   const MAX_UNDO = 30;
 
-  // Open the window for an image.
+  // Start the tool in the edit window. Its area must be on screen already, to fit the image to it.
   //   source:   the image to edit (with earlier removals, if any) — ImageBitmap or canvas;
-  //   original: the image as uploaded, for "hold to compare".
-  // Resolves with a canvas of the edited image, null for "restore original", or undefined when
-  // cancelled (or nothing was changed).
-  async function open(source, original) {
-    const dialog = $("eraseDialog"), area = $("eraseArea"), stage = $("eraseStage");
+  //   original: the image as uploaded, for "hold to see the original";
+  //   onStatus(text, warn): a message for the window's status line;
+  //   onChange(): the image changed (a removal, an undo or a redo).
+  // Returns a controller:
+  //   image     — the canvas holding the edited image (live);
+  //   changed() — whether the image differs from the one given;
+  //   busy()    — whether a removal is running;
+  //   result()  — a copy of the edited image, as a canvas;
+  //   destroy() — stop and release everything.
+  function start(source, original, { onStatus = () => {}, onChange = () => {} } = {}) {
+    const area = $("eraseArea"), stage = $("eraseStage");
     const imgCanvas = $("eraseImage"), maskCanvas = $("eraseMask"), origCanvas = $("eraseOrig");
-    const cursor = $("eraseCursor"), status = $("eraseStatus"), brush = $("eraseBrush");
+    const cursor = $("eraseCursor"), brush = $("eraseBrush");
     const undoBtn = $("eraseUndo"), redoBtn = $("eraseRedo"), compareBtn = $("eraseCompare");
     const zoomIn = $("eraseZoomIn"), zoomOut = $("eraseZoomOut"), zoomLabel = $("eraseZoom");
 
@@ -24,10 +31,12 @@ window.EraseTool = (() => {
     const mctx = maskCanvas.getContext("2d", { willReadFrequently: true });
     origCanvas.getContext("2d").drawImage(original, 0, 0, W, H);
     origCanvas.hidden = true;
+    maskCanvas.hidden = false;
 
     const undo = [], redo = [];
-    let busy = false, ready = false, changed = false;
-    const setStatus = (text, warn = false) => { status.textContent = text; status.classList.toggle("warn", warn); };
+    // Removals in effect now: up for a removal or a redo, down for an undo.
+    let applied = 0;
+    let busy = false, ready = false, destroyed = false;
     const refreshButtons = () => {
       undoBtn.disabled = busy || !undo.length;
       redoBtn.disabled = busy || !redo.length;
@@ -35,7 +44,12 @@ window.EraseTool = (() => {
     };
 
     // ---- Zoom ----
-    let fit = 1, zoom = 0, scale = 1;
+    const fit = Math.min(area.clientWidth / W, area.clientHeight / H, 4);
+    let zoom = 0, scale = 1;
+    const updateCursorSize = () => {
+      const d = Number(brush.value);
+      cursor.style.width = cursor.style.height = `${d}px`;
+    };
     const applyZoom = (keepCentre = true) => {
       const cx = (area.scrollLeft + area.clientWidth / 2) / scale, cy = (area.scrollTop + area.clientHeight / 2) / scale;
       scale = fit * ZOOMS[zoom];
@@ -49,10 +63,6 @@ window.EraseTool = (() => {
         area.scrollTop = cy * scale - area.clientHeight / 2;
       }
       updateCursorSize();
-    };
-    const updateCursorSize = () => {
-      const d = Number(brush.value);
-      cursor.style.width = cursor.style.height = `${d}px`;
     };
 
     // ---- Painting ----
@@ -103,106 +113,97 @@ window.EraseTool = (() => {
       busy = true;
       refreshButtons();
       try {
-        if (!ready) setStatus("Waiting for the AI to load…");
+        if (!ready) onStatus("Waiting for the AI to load…");
         await Inpaint.ready();
-        setStatus("Removing…");
+        if (destroyed) return;
+        onStatus("Removing…");
         const before = await Inpaint.fill(imgCanvas, maskCanvas, b);
         undo.push({ x: b.x, y: b.y, data: before });
         if (undo.length > MAX_UNDO) undo.shift();
         redo.length = 0;
-        changed = true;
-        setStatus("Removed. Paint over anything else, or save.");
+        applied++;
+        onStatus("Removed. Paint over anything else, or save.");
+        onChange();
       } catch (err) {
         console.error(err);
-        setStatus("The AI could not remove this. Check the internet connection and try again.", true);
+        if (!destroyed) onStatus("The AI could not remove this. Check the internet connection and try again.", true);
       } finally {
-        clearMarks();
+        if (!destroyed) clearMarks();
         busy = false;
-        refreshButtons();
+        if (!destroyed) refreshButtons();
       }
     }
 
     // Swap a saved region with what is on the image now (undo / redo).
-    const swap = (from, to) => {
-      const step = from.pop();
-      if (!step) return;
-      const now = ictx.getImageData(step.x, step.y, step.data.width, step.data.height);
-      ictx.putImageData(step.data, step.x, step.y);
-      to.push({ x: step.x, y: step.y, data: now });
-      changed = true;
+    const swap = (from, to, step) => {
+      const s = from.pop();
+      if (!s) return;
+      const now = ictx.getImageData(s.x, s.y, s.data.width, s.data.height);
+      ictx.putImageData(s.data, s.x, s.y);
+      to.push({ x: s.x, y: s.y, data: now });
+      applied += step;
       refreshButtons();
+      onChange();
     };
 
-    // ---- Open ----
     clearMarks();
-    setStatus("");
     refreshButtons();
-    dialog.showModal();
-    fit = Math.min(area.clientWidth / W, area.clientHeight / H, 4);
-    zoom = 0;
     applyZoom(false);
 
     // Start loading the AI while the user looks at the image.
-    Inpaint.ready((pct) => setStatus(`Loading the AI (first time only, about 40MB)… ${Math.round(pct)}%`))
-      .then(() => { ready = true; if (!busy) setStatus("Ready. Paint over what you want to remove."); })
-      .catch(() => setStatus("The AI could not be loaded. Check the internet connection and try again.", true));
+    Inpaint.ready((pct) => { if (!destroyed) onStatus(`Loading the AI (first time only, about 40MB)… ${Math.round(pct)}%`); })
+      .then(() => { ready = true; if (!busy && !destroyed) onStatus("Ready. Paint over what you want to remove."); })
+      .catch(() => { if (!destroyed) onStatus("The AI could not be loaded. Check the internet connection and try again.", true); });
 
-    return new Promise((resolve) => {
-      const finish = (result) => {
-        dialog.close();
-        for (const c of [imgCanvas, maskCanvas, origCanvas]) { c.width = c.height = 0; }
-        stage.onpointerdown = stage.onpointermove = stage.onpointerup = stage.onpointercancel = stage.onpointerleave = null;
-        brush.oninput = dialog.oncancel = null;
-        undoBtn.onclick = redoBtn.onclick = zoomIn.onclick = zoomOut.onclick = null;
-        compareBtn.onpointerdown = compareBtn.onpointerup = compareBtn.onpointerleave = null;
-        $("eraseSave").onclick = $("eraseReset").onclick = $("eraseCancel").onclick = null;
-        resolve(result);
-      };
-      const keep = () => {
+    stage.onpointerdown = (e) => {
+      if (busy || e.button !== 0) return;
+      stage.setPointerCapture(e.pointerId);
+      drawing = true;
+      last = null;
+      paint(toImage(e));
+    };
+    stage.onpointermove = (e) => {
+      moveCursor(e);
+      cursor.hidden = false;
+      if (drawing) paint(toImage(e));
+    };
+    stage.onpointerup = stage.onpointercancel = () => {
+      if (!drawing) return;
+      drawing = false;
+      last = null;
+      removeMarked();
+    };
+    stage.onpointerleave = () => { if (!drawing) cursor.hidden = true; };
+    brush.oninput = updateCursorSize;
+    zoomIn.onclick = () => { zoom = Math.min(ZOOMS.length - 1, zoom + 1); applyZoom(); };
+    zoomOut.onclick = () => { zoom = Math.max(0, zoom - 1); applyZoom(); };
+    undoBtn.onclick = () => swap(undo, redo, -1);
+    redoBtn.onclick = () => swap(redo, undo, +1);
+    compareBtn.onpointerdown = () => { origCanvas.hidden = false; maskCanvas.hidden = true; };
+    compareBtn.onpointerup = compareBtn.onpointerleave = () => { origCanvas.hidden = true; maskCanvas.hidden = false; };
+
+    return {
+      image: imgCanvas,
+      changed: () => applied > 0,
+      busy: () => busy,
+      result() {
         const out = document.createElement("canvas");
         out.width = W; out.height = H;
         out.getContext("2d").drawImage(imgCanvas, 0, 0);
         return out;
-      };
-
-      stage.onpointerdown = (e) => {
-        if (busy || e.button !== 0) return;
-        stage.setPointerCapture(e.pointerId);
-        drawing = true;
-        last = null;
-        paint(toImage(e));
-      };
-      stage.onpointermove = (e) => {
-        moveCursor(e);
-        cursor.hidden = false;
-        if (drawing) paint(toImage(e));
-      };
-      stage.onpointerup = stage.onpointercancel = () => {
-        if (!drawing) return;
-        drawing = false;
-        last = null;
-        removeMarked();
-      };
-      stage.onpointerleave = () => { if (!drawing) cursor.hidden = true; };
-      brush.oninput = updateCursorSize;
-      zoomIn.onclick = () => { zoom = Math.min(ZOOMS.length - 1, zoom + 1); applyZoom(); };
-      zoomOut.onclick = () => { zoom = Math.max(0, zoom - 1); applyZoom(); };
-      undoBtn.onclick = () => swap(undo, redo);
-      redoBtn.onclick = () => swap(redo, undo);
-      compareBtn.onpointerdown = () => { origCanvas.hidden = false; maskCanvas.hidden = true; };
-      compareBtn.onpointerup = compareBtn.onpointerleave = () => { origCanvas.hidden = true; maskCanvas.hidden = false; };
-
-      const cancel = () => {
-        if (busy) return;
-        if (changed && !confirm("Discard the changes you made to this image?")) return;
-        finish(undefined);
-      };
-      dialog.oncancel = (e) => { e.preventDefault(); cancel(); };
-      $("eraseCancel").onclick = cancel;
-      $("eraseSave").onclick = () => { if (!busy) finish(changed ? keep() : undefined); };
-      $("eraseReset").onclick = () => { if (!busy) finish(null); };
-    });
+      },
+      destroy() {
+        destroyed = true;
+        for (const c of [imgCanvas, maskCanvas, origCanvas]) { c.width = c.height = 0; }
+        stage.onpointerdown = stage.onpointermove = stage.onpointerup = stage.onpointercancel = stage.onpointerleave = null;
+        brush.oninput = null;
+        undoBtn.onclick = redoBtn.onclick = zoomIn.onclick = zoomOut.onclick = null;
+        compareBtn.onpointerdown = compareBtn.onpointerup = compareBtn.onpointerleave = null;
+        stage.classList.remove("busy");
+        cursor.hidden = true;
+      },
+    };
   }
 
-  return { open };
+  return { start };
 })();

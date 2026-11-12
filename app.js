@@ -257,9 +257,12 @@
   // Images with objects removed, per file (ImageBitmap at the file's own size). Used in place of the
   // file everywhere, so crops and all sizes include the removal.
   const erased = new Map();
-  const isEdited = (f) => crops.has(f) || erased.has(f);
+  // Light settings {brightness, contrast, saturation}, per file. Applied when the image is resized.
+  const lights = new Map();
+  const isEdited = (f) => crops.has(f) || erased.has(f) || lights.has(f);
   function forgetEdits(f) {
     crops.delete(f);
+    lights.delete(f);
     erased.get(f)?.close();
     erased.delete(f);
   }
@@ -275,23 +278,8 @@
     return p ? p.width / p.height : null;
   }
 
-  async function cropFile(file) {
-    let bitmap;
-    try {
-      bitmap = await decodeImage(file);
-    } catch {
-      alert(`Could not read the file "${file.name}"`);
-      return;
-    }
-    const result = await CropTool.open(bitmap, { presetRatio: chosenRatio(), current: crops.get(file), allowRotate: true });
-    bitmap.close();
-    if (result === undefined) return;
-    if (result) crops.set(file, result);
-    else crops.delete(file);
-    renderFileList();
-  }
-
-  async function eraseFile(file) {
+  // Open the edit window (crop, light, remove objects) for an uploaded image and keep what was saved.
+  async function editFile(file) {
     let original;
     try {
       original = await decodeOriginal(file);
@@ -299,58 +287,33 @@
       alert(`Could not read the file "${file.name}"`);
       return;
     }
-    const current = erased.get(file) || original;
-    const result = await EraseTool.open(current, original);
+    const result = await ImageEditor.open({
+      original,
+      erased: erased.get(file) || null,
+      crop: crops.get(file) || null,
+      light: lights.get(file) || null,
+      presetRatio: chosenRatio(),
+      name: file.name,
+      canApplyAll: files.length > 1,
+    });
     original.close();
     if (result === undefined) return;
-    erased.get(file)?.close();
-    if (result) erased.set(file, await createImageBitmap(result));
-    else erased.delete(file);
+    if (result === null) {
+      forgetEdits(file);
+    } else {
+      if (result.erased) {
+        erased.get(file)?.close();
+        erased.set(file, await createImageBitmap(result.erased));
+      }
+      if (result.crop) crops.set(file, result.crop);
+      else crops.delete(file);
+      for (const f of result.lightForAll ? files : [file]) {
+        if (result.light) lights.set(f, { ...result.light });
+        else lights.delete(f);
+      }
+    }
     renderFileList();
   }
-
-  // ---------- Edit menu of an uploaded image ----------
-
-  const editMenu = $("editMenu");
-  let menuFile = null, menuButton = null;
-  function closeEditMenu() {
-    editMenu.hidden = true;
-    menuFile = menuButton = null;
-  }
-  // Keep the menu next to its button (also while the page scrolls).
-  function placeEditMenu() {
-    if (editMenu.hidden) return;
-    if (!menuButton?.isConnected) { closeEditMenu(); return; }
-    const r = menuButton.getBoundingClientRect();
-    const m = editMenu.getBoundingClientRect();
-    editMenu.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.width - 8))}px`;
-    editMenu.style.top = `${r.bottom + 6 + m.height > innerHeight && r.top - m.height - 6 > 0 ? r.top - m.height - 6 : r.bottom + 6}px`;
-  }
-  function openEditMenu(button, file) {
-    if (menuFile === file && !editMenu.hidden) { closeEditMenu(); return; }
-    menuFile = file;
-    menuButton = button;
-    editMenu.querySelector('[data-action="reset"]').hidden = !isEdited(file);
-    editMenu.style.left = editMenu.style.top = "0px";
-    editMenu.hidden = false;
-    placeEditMenu();
-    editMenu.querySelector("button").focus({ preventScroll: true });
-  }
-  editMenu.addEventListener("click", (e) => {
-    const action = e.target.closest("button")?.dataset.action;
-    const file = menuFile;
-    if (!action || !file) return;
-    closeEditMenu();
-    if (action === "crop") cropFile(file);
-    else if (action === "erase") eraseFile(file);
-    else if (action === "reset" && confirm(`Undo all edits of "${file.name}"?`)) { forgetEdits(file); renderFileList(); }
-  });
-  document.addEventListener("pointerdown", (e) => {
-    if (!editMenu.hidden && !editMenu.contains(e.target) && !e.target.closest(".edit-btn")) closeEditMenu();
-  });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !editMenu.hidden) closeEditMenu(); });
-  addEventListener("resize", placeEditMenu);
-  addEventListener("scroll", placeEditMenu, true);
 
   // Everything dropped, including the images inside dropped folders (and their sub-folders).
   async function droppedFiles(dataTransfer) {
@@ -444,9 +407,9 @@
       edit.type = "button";
       edit.className = isEdited(f) ? "edit-btn edited" : "edit-btn";
       edit.textContent = isEdited(f) ? "✎ Edited" : "✎ Edit";
-      edit.title = "Crop, rotate, or remove objects";
-      edit.setAttribute("aria-haspopup", "menu");
-      edit.onclick = () => openEditMenu(edit, f);
+      edit.title = "Crop, adjust the light, or remove objects";
+      edit.setAttribute("aria-haspopup", "dialog");
+      edit.onclick = () => editFile(f);
       const rm = document.createElement("button");
       rm.type = "button";
       rm.textContent = "×";
@@ -943,6 +906,12 @@
           bitmap = await CropTool.apply(full, crop);
           full.close();
         }
+        const light = lights.get(file);
+        if (light) {
+          const unlit = bitmap;
+          bitmap = await Light.apply(unlit, light);
+          unlit.close();
+        }
         // Sizes are worked out from the image as uploaded (and cropped), before any AI enlargement.
         const targets = getTargets(bitmap);
         let opaque = file.type === "image/jpeg";
@@ -1020,7 +989,7 @@
             ...out, ...job, file: index,
             name: `${name}.${EXT[s.type]}`, label: t.name, width: t.width, height: t.height,
             limit: s.maxBytes, chosenQuality: s.quality,
-            erasedNote: erased.has(file) ? "Objects removed" : "",
+            erasedNote: [erased.has(file) && "Objects removed", light && "Light adjusted"].filter(Boolean).join(". "),
             aiNote: prep.aiNote, placeNote, fixedNote: s.fixed && `Fixed settings for the size: ${s.fixed}`,
             warning: blurry
               ? `The original image is small for this size (enlarged ${enlargement.toFixed(1)}×) and may look blurry. Consider ticking "AI quality enhancement".`
@@ -1170,7 +1139,7 @@
     let x = Math.max(0, L.sx), y = Math.max(0, L.sy);
     let w = Math.min(iw - x, L.sw - (x - L.sx)), h = Math.min(ih - y, L.sh - (y - L.sy));
     const current = r.manualCrop || { x, y, w, h };
-    const choice = await CropTool.open(plain, { presetRatio: r.W / r.H, lockRatio: true, current });
+    const choice = await ImageEditor.cropOnly(plain, { presetRatio: r.W / r.H, current });
     if (choice === undefined) return;
     if (choice) {
       r.manualCrop = choice;

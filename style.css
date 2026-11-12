@@ -260,7 +260,7 @@ button[hidden] { display: none; }
 #uploadStatus:empty { display: none; }
 #uploadStatus { display: block; margin-top: 8px; }
 
-/* ---------- Pop-up windows (PDF pages, crop) ---------- */
+/* ---------- Pop-up windows (PDF pages, edit, before / after) ---------- */
 
 .modal {
   border: 0; border-radius: 16px; padding: 0;
@@ -274,7 +274,7 @@ button[hidden] { display: none; }
 .modal-body h2 { margin: 0; font-size: 1.2rem; }
 .modal-tools { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .modal-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.modal-actions .link { align-self: center; }
+.modal-actions .link, .modal-tools .link { align-self: center; }
 
 .pdf-pages {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
@@ -289,7 +289,7 @@ button[hidden] { display: none; }
 .pdf-thumb canvas { max-width: 100%; box-shadow: 0 1px 3px rgba(15, 23, 42, .2); background: #fff; }
 .pdf-mode { display: grid; gap: 6px; }
 
-.crop-area { height: min(60vh, 560px); background: #f1f5f9; border-radius: 12px; overflow: hidden; }
+.crop-area { background: #f1f5f9; border-radius: 12px; overflow: hidden; }
 .crop-area img { display: block; max-width: 100%; }
 
 input[type=range] { accent-color: var(--accent); width: 100%; }
@@ -333,21 +333,46 @@ a.button-link.primary {
 }
 a.button-link.primary:hover { background: var(--primary-strong); }
 
-/* ---------- Edit menu of an uploaded image ---------- */
+/* ---------- Edit window: tabs and panels ---------- */
 
-.menu {
-  position: fixed; z-index: 50; min-width: 230px; padding: 6px;
-  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
-  display: grid; gap: 2px;
+.edit-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.edit-head .note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: #e9eef5; }
+.tabs[hidden] { display: none; }
+.tabs button {
+  font: inherit; font-weight: 600; font-size: .92rem; border: 0; background: none; color: var(--muted);
+  padding: 8px 16px; border-radius: 9px; cursor: pointer;
 }
-.menu[hidden] { display: none; }
-.menu button {
-  font: inherit; font-size: .9rem; text-align: left; background: none; border: 0; border-radius: 8px;
-  padding: 9px 12px; cursor: pointer; color: var(--text);
+.tabs button:hover { color: var(--accent); }
+.tabs button[aria-selected="true"] { background: var(--card); color: var(--accent); box-shadow: 0 1px 3px rgba(15, 23, 42, .2); }
+
+/* The three panels lie on top of each other and only one is seen. All keep their place and size, so
+   the window does not jump between tabs and each tool can measure its area while out of sight. */
+.edit-panels { display: grid; min-width: 0; }
+.edit-panel { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.edit-panel.off { visibility: hidden; }
+.edit-panel[hidden] { display: none; }
+.edit-panel > .crop-area, .edit-panel > .light-area, .edit-panel > .erase-area { flex: 1 1 auto; height: min(52vh, 540px); }
+
+/* ---------- Light ---------- */
+
+.light-sliders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; }
+.slider-field { display: grid; gap: 4px; }
+.slider-field label { display: flex; justify-content: space-between; font-weight: 600; font-size: .9rem; }
+.slider-field output { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .light-sliders { grid-template-columns: 1fr; } }
+.light-area {
+  position: relative; overflow: hidden; border-radius: 12px;
+  background: repeating-conic-gradient(#eef1f5 0% 25%, #fff 0% 50%) 50% / 16px 16px;
 }
-.menu button:hover, .menu button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
-.menu .menu-danger { color: var(--warn); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; }
+#lightPreview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+/* While the light is changed, every tab shows the image with it (filter set by light.js). */
+#editDialog.lit #lightPreview,
+#editDialog.lit #eraseImage,
+#editDialog.lit .crop-area .cropper-canvas img,
+#editDialog.lit .crop-area .cropper-view-box img { filter: url(#lightFilter); }
+#editDialog.compare #lightPreview { filter: none; }
 
 /* ---------- Remove objects ---------- */
 
@@ -358,7 +383,7 @@ button.secondary.icon { padding: 6px 12px; min-width: 38px; }
 button.secondary:disabled { opacity: .45; cursor: default; }
 .zoom-label { min-width: 46px; text-align: center; }
 .erase-area {
-  display: flex; overflow: auto; height: min(62vh, 600px); border-radius: 12px;
+  display: flex; overflow: auto; border-radius: 12px;
   background: repeating-conic-gradient(#eef1f5 0% 25%, #fff 0% 50%) 50% / 16px 16px;
 }
 .erase-stage { position: relative; margin: auto; flex: none; cursor: crosshair; touch-action: none; }

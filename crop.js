@@ -1,5 +1,5 @@
-// Manual crop (and rotate / straighten) of one image, with Cropper.js, loaded the first time the
-// crop window opens.
+// Manual crop (and rotate / straighten) of one image, with Cropper.js, loaded the first time it is
+// needed. The window around it (tabs, Save, Cancel) is in editor.js.
 window.CropTool = (() => {
   const $ = (id) => document.getElementById(id);
 
@@ -52,23 +52,29 @@ window.CropTool = (() => {
     return { x: (box.width - w * k) / 2, y: (box.height - h * k) / 2, width: w * k, height: h * k };
   }
 
-  // Open the crop window for a decoded image (ImageBitmap or canvas).
+  // Start cropping a decoded image (ImageBitmap or canvas) in the crop area of the edit window. The
+  // area must be on screen already, because Cropper.js measures it.
   // Options:
   //   presetRatio — width/height of the chosen size, offered as a shape (or null);
   //   lockRatio   — keep exactly that shape (used to adjust one output size);
   //   allowRotate — show 90° turns and the straighten slider;
   //   current     — the saved crop {x, y, w, h, rotate}, if any.
-  // Resolves with {x, y, w, h, rotate} (rotate in degrees, coordinates in the rotated image), null
-  // for "no crop", or undefined when cancelled.
-  async function open(source, { presetRatio = null, lockRatio = false, allowRotate = false, current = null } = {}) {
+  // Resolves with a controller:
+  //   touched() — whether the user changed the crop, its shape or the rotation;
+  //   get()     — {x, y, w, h, rotate} (rotate in degrees, coordinates in the rotated image), or null
+  //               when the whole image is kept;
+  //   destroy() — stop and release everything.
+  async function start(source, { presetRatio = null, lockRatio = false, allowRotate = false, current = null } = {}) {
     const Cropper = await loadLib();
+    const sw = source.width, sh = source.height;
     const canvas = document.createElement("canvas");
-    canvas.width = source.width;
-    canvas.height = source.height;
+    canvas.width = sw;
+    canvas.height = sh;
     canvas.getContext("2d").drawImage(source, 0, 0);
     const url = URL.createObjectURL(await new Promise((r) => canvas.toBlob(r, "image/png")));
+    canvas.width = canvas.height = 0;
 
-    const dialog = $("cropDialog"), img = $("cropImg"), ratio = $("cropRatio"), size = $("cropSize");
+    const img = $("cropImg"), ratio = $("cropRatio"), size = $("cropSize");
     const rotateTools = $("cropRotate"), straighten = $("cropStraighten"), angleOut = $("cropAngle");
     ratio.querySelector('option[value="preset"]').disabled = !presetRatio;
     if (lockRatio && presetRatio) ratio.value = "preset";
@@ -86,7 +92,6 @@ window.CropTool = (() => {
     straighten.value = fine;
     angleOut.textContent = `${fine}°`;
 
-    dialog.showModal();
     img.src = url;
     await img.decode();
     const cropper = await new Promise((resolve) => {
@@ -120,43 +125,48 @@ window.CropTool = (() => {
       cropper.rotateTo(deg);
       fitToWindow();
       const turned = quarter % 180 !== 0;
-      const w = turned ? source.height : source.width, h = turned ? source.width : source.height;
+      const w = turned ? sh : sw, h = turned ? sw : sh;
       cropper.setData(straightCrop(w, h, fine));
     };
 
-    return new Promise((resolve) => {
-      const finish = (result) => {
-        cropper.destroy();
-        URL.revokeObjectURL(url);
-        dialog.close();
-        ratio.onchange = dialog.oncancel = straighten.oninput = null;
-        ratio.disabled = false;
-        $("cropSave").onclick = $("cropReset").onclick = $("cropCancel").onclick = null;
-        $("cropLeft").onclick = $("cropRight").onclick = null;
-        resolve(result);
-      };
-      ratio.onchange = () => cropper.setAspectRatio(ratioValue());
-      $("cropLeft").onclick = () => { quarter = (quarter + 270) % 360; applyRotation(); };
-      $("cropRight").onclick = () => { quarter = (quarter + 90) % 360; applyRotation(); };
-      straighten.oninput = () => {
-        fine = Number(straighten.value);
-        angleOut.textContent = `${fine}°`;
-        applyRotation();
-      };
-      $("cropSave").onclick = () => {
+    // The crop counts as changed only once the user does something, so opening the window (for
+    // another tool, say) never crops an image by itself.
+    let touched = false;
+    const touch = () => { touched = true; };
+    img.addEventListener("cropstart", touch);
+    ratio.onchange = () => { cropper.setAspectRatio(ratioValue()); touch(); };
+    $("cropLeft").onclick = () => { quarter = (quarter + 270) % 360; applyRotation(); touch(); };
+    $("cropRight").onclick = () => { quarter = (quarter + 90) % 360; applyRotation(); touch(); };
+    straighten.oninput = () => {
+      fine = Number(straighten.value);
+      angleOut.textContent = `${fine}°`;
+      applyRotation();
+      touch();
+    };
+
+    return {
+      touched: () => touched,
+      get() {
         const d = cropper.getData(true);
         const rotate = quarter + fine;
-        const box = rotatedSize(source.width, source.height, rotate);
+        const box = rotatedSize(sw, sh, rotate);
         const bw = Math.round(box.width), bh = Math.round(box.height);
         const x = Math.max(0, d.x), y = Math.max(0, d.y);
         const w = Math.min(bw - x, d.width), h = Math.min(bh - y, d.height);
         const whole = !rotate && x === 0 && y === 0 && w === bw && h === bh;
-        finish(w > 0 && h > 0 && !whole ? { x, y, w, h, rotate } : null);
-      };
-      $("cropReset").onclick = () => finish(null);
-      $("cropCancel").onclick = () => finish(undefined);
-      dialog.oncancel = () => finish(undefined);
-    });
+        return w > 0 && h > 0 && !whole ? { x, y, w, h, rotate } : null;
+      },
+      destroy() {
+        img.removeEventListener("cropstart", touch);
+        cropper.destroy();
+        URL.revokeObjectURL(url);
+        img.removeAttribute("src");
+        ratio.onchange = straighten.oninput = null;
+        ratio.disabled = false;
+        $("cropLeft").onclick = $("cropRight").onclick = null;
+        size.textContent = "";
+      },
+    };
   }
 
   // Apply a saved crop to an image: turn it, then cut the chosen area.
@@ -165,5 +175,5 @@ window.CropTool = (() => {
     return createImageBitmap(turned, crop.x, crop.y, crop.w, crop.h);
   }
 
-  return { open, apply };
+  return { start, apply };
 })();
