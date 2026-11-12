@@ -35,7 +35,7 @@ body::before {
   content: ""; position: fixed; inset: 0; z-index: -1;
   background:
     linear-gradient(rgba(3, 16, 40, .22), rgba(3, 16, 40, .22)),
-    url("assets/background.jpg") center / cover no-repeat;
+    url("assets/background.jpg?v=2") center / cover no-repeat;
 }
 
 /* Same width and side padding as the cards below, so the logo lines up with them. */
